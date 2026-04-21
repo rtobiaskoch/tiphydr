@@ -47,3 +47,15 @@ test_that("stops if sequence column is missing", {
   meta <- make_test_metadata()
   expect_error(fasta_unnest(meta), "must have a 'sequence' list-column")
 })
+
+test_that("verbose=FALSE suppresses drop message", {
+  meta_extra <- tibble::add_row(make_test_metadata(),
+                                 strain_id = "GHOST_999",
+                                 date = as.Date("2021-01-01"),
+                                 location = "Colorado", host = "Bird")
+  nested <- suppressMessages(suppressWarnings(
+    fasta_nest(meta_extra, make_test_biostring(),
+               id_col = "strain_id", delim = "|")
+  ))
+  expect_no_message(fasta_unnest(nested, verbose = FALSE))
+})

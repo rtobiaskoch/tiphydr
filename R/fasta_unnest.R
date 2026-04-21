@@ -22,14 +22,16 @@ fasta_unnest <- function(nested_df, verbose = TRUE) {
 
   if (n_null > 0L) {
     if (verbose) message("Dropping ", n_null, " rows with NULL sequences")
-    nested_df <- nested_df[!null_mask, ]
+    filtered_df <- nested_df[!null_mask, ]
+  } else {
+    filtered_df <- nested_df
   }
 
   # do.call(c, ...) concatenates the list of length-1 DNAStringSets into one
-  biostring <- do.call(c, nested_df$sequence)
+  biostring <- do.call(c, filtered_df$sequence)
 
   # dplyr::select removes the sequence list-column, leaving clean metadata
-  metadata  <- dplyr::select(nested_df, -sequence)
+  metadata  <- dplyr::select(filtered_df, -sequence)
 
   list(metadata = metadata, biostring = biostring)
 }
