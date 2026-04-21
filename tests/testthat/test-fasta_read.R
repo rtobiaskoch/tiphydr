@@ -25,3 +25,11 @@ test_that("verbose=FALSE suppresses all messages", {
   path <- system.file("extdata", "wnv_ref.fasta", package = "tiphydr")
   expect_silent(fasta_read(path, verbose = FALSE))
 })
+
+test_that("duplicate paths warn about duplicate list names", {
+  path   <- system.file("extdata", "wnv_ref.fasta", package = "tiphydr")
+  expect_warning(
+    suppressMessages(fasta_read(c(path, path))),
+    "Duplicate list names"
+  )
+})

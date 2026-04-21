@@ -18,6 +18,15 @@ fasta_read <- function(paths, verbose = TRUE) {
     stop("paths must be a non-empty character vector")
   }
 
+  # Guard against empty strings (e.g. system.file() returning "" when a file
+  # is not found inside a package) — these give a misleading "Files not found:"
+  # error with no filename shown
+  blank_paths <- paths[!nzchar(paths)]
+  if (length(blank_paths) > 0) {
+    stop("paths contains ", length(blank_paths),
+         " empty string(s). Did system.file() fail to find the file?")
+  }
+
   # Check all files exist before attempting any reads
   missing_files <- paths[!file.exists(paths)]
   if (length(missing_files) > 0) {
@@ -45,5 +54,14 @@ fasta_read <- function(paths, verbose = TRUE) {
   names(result) <- tools::file_path_sans_ext(           # tools:: strips ".fasta" etc.
     basename(paths)
   )
+
+  # Warn when the same filename appears more than once — silently duplicated
+  # list names are hard to debug downstream (consistent with fasta_combine pattern)
+  dupe_names <- names(result)[duplicated(names(result))]
+  if (length(dupe_names) > 0) {
+    warning("Duplicate list names produced from paths: ",
+            paste(unique(dupe_names), collapse = ", "))
+  }
+
   result
 }
