@@ -1,0 +1,6 @@
+"strain_id","date","location","host"
+"NY10_001","2021-07-15","Colorado","Culex tarsalis"
+"NS2A_002","2020-08-01","Colorado","Culex pipiens"
+"NS4B_003","2022-06-20","Wyoming","Culex tarsalis"
+"OTHER_004","2019-05-10","Colorado","Bird"
+"PARTIAL_005","2021-09-15","Colorado","Culex tarsalis"
