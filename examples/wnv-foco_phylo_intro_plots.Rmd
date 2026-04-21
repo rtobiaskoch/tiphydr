@@ -1,0 +1,420 @@
+
+# Header
+
+```{r}
+rm(list = ls())
+pacman::p_load(treeio, ggtree, tidytree, ape, Biostrings, wesanderson,#phylo
+               tidyverse, jsonlite, purrr, tidymodels, patchwork, zoo, janitor)
+
+# CO_col = c("Boulder" =  "#FFF6DC",
+#            "Not CO" = "#96B6C5",
+#            "Park" = "#9E9FA5",
+#            "Mesa" = "#C4C1A4",
+#            "Weld" ="#9E9FA5", 
+#            "FoCo" = "#FFC6AC"
+#           )
+# 
+# zone_col = c("CO/FC/NW" = "#FFF6DC",
+#              "CO/FC/SE"= "#96B6C5",
+#              "CO/FC/NE"= "#C4C1A4",
+#              "CO/LV/LV"= "#9E9FA5",
+#              "CO/FC/SW" = "#FFC6AC",
+#              "CO/BE/BE" = "gray",
+#              "CO/FC"= "#FFC6AC",
+#              "CO/LV/SE"= "#9E9FA5",
+#              "CO/LV/NE"= "#9E9FA5")
+
+```
+
+# READ IN DATA
+```{r}
+df_tree2 = read_rds("data/df_tree2_v1.rds")
+intro_samples = read_rds("data/intro_samples_v1.rds")
+tree = read.tree("../2_introduction_Nextstrain/results/tree.nwk")
+intro_nodes_all = unique(intro_samples$intro_node_num)
+intro_nodes_all_mdata = df_tree2 %>% 
+  filter(node %in% intro_nodes_all)
+```
+
+#plot trees
+```{r}
+df_tree2= df_tree2 %>%
+  mutate(intro_tip_state = if_else(!is.na(tip_keep) & CO=="FoCo",
+                                   "FoCo",
+                                   NA
+                                   )
+         )
+
+
+t = intro_samples %>% 
+ filter(intro_node_num != node) %>% # remove single intro where tip is the same as the intro
+  arrange(intro_node_date)
+
+
+intro_nodes = unique(t$intro_node_num)
+
+intro_date = unique(t$intro_node_date)
+
+last_date = intro_samples %>%
+  filter(intro_node_num != node) %>%
+  distinct(intro_node_num,date, .keep_all = T) %>% #some samples had two samples with same date
+  group_by(intro_node_num) %>%
+  filter(date == max(date)) %>%
+  arrange(intro_node_date)
+
+intro_date = paste0(year(intro_date),"-",year(last_date$inferred_date), " (", last_date$intro_node_num,")")
+
+rm(t)
+
+t = df_tree2 %>% 
+ dplyr::select(label, intro_node_num, intro_tip_state, intro_node_date, inferred_date, inferred_state, tip_keep) %>%
+  arrange(intro_node_date)
+
+intro_trees = map(intro_nodes, ~extract.clade(tree, .x))
+intro_trees = map(intro_trees, ~tidytree::as_tibble(.x)) #make intro clade trees a table
+t2 = map(intro_trees, ~left_join(.x, t, by = c("label"))) #add metadata
+intro_trees = map(intro_trees, ~left_join(.x, t, by = c("label"))) #add metadata
+intro_trees = map(intro_trees, ~as.treedata(.x)) #convert back to a trees
+
+# Extract the phylo objects and write them
+walk2(intro_trees, intro_date, ~{
+  treeio::write.tree(.x@phylo, file = paste0("data_output/intro_trees/", .y, ".newick"))
+})
+
+#for strainhub 
+intro_samples %>%
+  filter(intro_node_num == 6433) %>%
+  select(label, date,trap, state) %>%
+  rename(Accession = label,
+         trap_id   = trap) %>%
+  write.csv("data_output/intro_samples_4_strainhub.csv", row.names = F)
+
+p_trees = map2(intro_trees,intro_date, ~ggtree(.x) +
+               # geom_tippoint(aes(color = intro_tip_state), alpha = 0.5) +
+                geom_nodepoint(aes(color = inferred_state), size = 2, alpha = 0.7) +
+                ggtitle(as.character(.y))+
+                theme(legend.position = "none",
+                      title = element_text(size = 8))
+              )
+                        
+p_trees = patchwork::wrap_plots(p_trees) + plot_layout(guides = "collect")
+p_trees
+ggsave(filename = "data_output/intro_trees/p_trees.png", p_trees, height = 10, width = 10, units = "in")
+
+rm(t,t2)
+```
+
+# Intro Stats
+
+```{r}
+
+#get trap and date info for the intro nodes
+intro_node_mdata = df_tree2 %>%
+  filter(node %in% intro_nodes_all) %>%
+  dplyr::select(node, label, inferred_state,
+                inferred_date) %>%
+  dplyr::rename(intro_inferred_date = inferred_date,
+                intro_label = label)
+
+#get trap info for the fst sample from foco
+intro_trap = intro_samples %>%
+  filter(inferred_state == "FoCo") %>%
+  group_by(intro_node_num) %>%
+  filter(date == min(date, na.rm = T)) %>%
+ dplyr::select(intro_node_num, trap) %>%
+  mutate(trap_num = row_number()) %>%
+  pivot_wider(id_cols = c(intro_node_num),
+              names_from = trap_num, 
+              values_from = trap, 
+              names_prefix = "intro_trap_")
+
+# #get zone info for the fst sample from foco
+# intro_zone = intro_samples %>%
+#   filter(inferred_state == "FoCo") %>%
+#   group_by(intro_node_num) %>%
+#   filter(date == min(date)) %>%
+#  dplyr::select(intro_node_num, zone) %>%
+#   mutate(zone_num = row_number()) %>%
+#   pivot_wider(id_cols = intro_node_num,
+#               names_from = zone_num,
+#               values_from = zone,
+#               names_prefix = "intro_zone_")
+
+  
+#get size of all samples in each clade to keep smallest clade with FoCO
+intro_size = intro_samples %>%
+  group_by(intro_node_num) %>%
+  count()
+
+#get size of foco sample in each clade
+intro_FoCo_size = intro_samples %>%
+  group_by(intro_node_num) %>%
+  filter(CO == "Foco") %>%
+  summarize(foco_n = n())
+
+
+intro_grp_stats = intro_samples %>%
+ #distinct(intro_node_num, .keep_all = T) %>%
+  group_by(intro_node_num) %>%
+  summarise(fst_sample_date = min(inferred_date),
+            last_sample_date = max(inferred_date)) %>%
+  ungroup() %>%
+  left_join(intro_node_mdata, by = c("intro_node_num" = "node")) %>%
+  #left_join(intro_zone, by = c("intro_node_num")) %>%
+ # mutate(zone_match = if_else(inferred_zone == intro_zone_1, T,F)) %>%
+  left_join(intro_size, by = c("intro_node_num")) %>%
+  left_join(intro_FoCo_size, by = c("intro_node_num")) %>%
+  mutate(inferred_duration = round(as.numeric(last_sample_date - intro_inferred_date)/365,2),
+         sample_duration = round(as.numeric(last_sample_date - fst_sample_date)/365,2),
+        # inferred
+         intro_year = year(fst_sample_date),
+         intro_year0 = year(fst_sample_date) - min(year(fst_sample_date)),
+         inferred_intro_year = year(intro_inferred_date),
+         inferred_intro_year0 = year(intro_inferred_date) - min(year(intro_inferred_date)), 
+         intro_month = as.factor(month(fst_sample_date)),
+         intro_month0 = month(fst_sample_date) - min(month(fst_sample_date)),
+         intro_week = week(fst_sample_date),
+         intro_week0 = week(fst_sample_date) - min(week(fst_sample_date)),
+         inferred_intro_week = week(intro_inferred_date),
+         inferred_intro_week0 = week(intro_inferred_date) - min(week(intro_inferred_date)), 
+         inferred_persistence = if_else(inferred_duration > 1,
+                               "persistent",
+                               "transient"),
+         persistence = if_else(sample_duration > 1,
+                               "persistent",
+                               "transient")) %>% #did intro last longer than a year?
+  #distinct(intro_node_num, .keep_all = T) %>%
+  arrange(intro_inferred_date) %>%
+  mutate(intro_num = 1:nrow(.))
+
+write.csv(intro_grp_stats, "data_output/intro_grp_stats.csv")
+
+rm(intro_size, intro_FoCo_size)
+#%>%
+ # mutate(inferred_foco_delay = foco_date - inferred_date)
+```
+
+
+INTRO STAT SUMMARY
+```{r}
+intro_stat_sum_all = intro_grp_stats %>%
+  group_by(inferred_state) %>% #group by everything
+  summarize(samples = "all",
+            intro_total = max(nrow(.)),
+            max_persistence = max(inferred_duration),
+            avg_inf_persistence = mean(inferred_duration),
+            avg_obs_persitence = mean(sample_duration)
+            )
+
+intro_stat_sum_gt2 = intro_grp_stats %>%
+  filter(n > 1) %>%
+  group_by(inferred_state) %>% #group by everything
+  summarize(samples = ">1",
+            intro_total = max(nrow(.)),
+            max_persistence = max(inferred_duration),
+            avg_inf_persistence = mean(inferred_duration),
+            avg_obs_persitence = mean(sample_duration)
+            )
+
+intro_stat_sum = rbind(intro_stat_sum_all, intro_stat_sum_gt2) %>% 
+ dplyr::select(-inferred_state) %>%
+  t()
+
+write.csv(intro_stat_sum, "data_output/intro_stats_summary.csv", row.names = T)
+```
+
+Combine intro groups to accession to get persistence for each sample
+```{r}
+m_data_persistence = intro_grp_stats %>%
+ dplyr::select(intro_node_num, persistence, inferred_duration, sample_duration) %>%
+  left_join(intro_samples %>%dplyr::select(accession, label, intro_node_num, date, trap, zone),
+            by = "intro_node_num")
+
+write.csv(m_data_persistence, "data_output/sample_persistence.csv") 
+```
+
+
+# PERSISTENCE Density Plot
+```{r}
+p = intro_grp_stats %>%
+ dplyr::filter(inferred_duration > 1) %>%
+ dplyr::select(sample_duration, inferred_duration) %>%
+  pivot_longer(cols = c(sample_duration, inferred_duration))
+
+p_hist = ggplot(p, aes(x = value, color = name, fill = name))+
+  geom_density(alpha = 0.7) +
+  scale_fill_brewer(palette = "Dark2") +
+    scale_color_brewer(palette = "Dark2") +
+  theme_minimal()
+p_hist
+
+ggsave(plot = p_hist,
+       filename = "data_output/p_hist_intro_duration.png")
+
+```
+
+# PERSISTENCE Density Plot  
+#SEASONALITY
+
+```{r}
+
+#WEEK 
+p_bar_week1 = ggplot(intro_grp_stats, aes(x = intro_week, fill = persistence, color = persistence)) +
+  geom_bar(alpha = 0.6) +
+  scale_color_brewer(palette = "Dark2") +
+  scale_fill_brewer(palette = "Dark2") +
+  theme_classic()
+
+p_bar_week2 = ggplot(intro_grp_stats, aes(x = inferred_intro_week, fill = inferred_persistence, color = inferred_persistence)) +
+  geom_bar(alpha = 0.6) +
+  scale_color_brewer(palette = "Dark2") +
+  scale_fill_brewer(palette = "Dark2") +
+  theme_classic()
+
+p_bar_week = p_bar_week1 + p_bar_week2
+p_bar_week
+ggsave(plot = p_bar_week, filename = "data_output/p_bar_week.png",
+       width = 10, height = 5, units = "in")
+
+#YEAR
+p_bar_year1 = ggplot(intro_grp_stats, aes(x = intro_year, fill = persistence, color = persistence)) +
+  geom_bar(alpha = 0.6) +
+    scale_color_brewer(palette = "Dark2") +
+  scale_fill_brewer(palette = "Dark2") +
+  xlab("Intro Year") +
+  theme_classic() +
+  scale_x_continuous(breaks = seq(2010, 2025, 5)) +
+  theme(legend.position = "none")
+
+p_bar_year2 = ggplot(intro_grp_stats, aes(x = inferred_intro_year, fill = inferred_persistence, color = inferred_persistence)) +
+  geom_bar(alpha = 0.6) +
+    scale_color_brewer(palette = "Dark2") +
+  scale_fill_brewer(palette = "Dark2") +
+  xlab("Inferred Intro Year") +
+  theme_classic() +
+  ylab("n clades") +
+  scale_x_continuous(breaks = seq(2010, 2025, 5)) +
+  theme(legend.position = "none",
+        axis.title.x = element_blank())
+
+p_bar_year = p_bar_year1 + p_bar_year2
+p_bar_year2
+ggsave(plot = p_bar_year2, filename = "data_output/p_bar_year_inferred.png")
+ggsave(plot = p_bar_year, filename = "data_output/p_bar_year.png")
+
+```
+
+Intro Timeline Data Prep
+```{r}
+
+t = intro_grp_stats %>%
+  dplyr::select(intro_num, inferred_persistence)
+
+#create data frame in format for intro timeline
+intro_long = intro_grp_stats %>%
+  dplyr::select(intro_num,foco_n, intro_inferred_date, fst_sample_date, last_sample_date) %>%
+  pivot_longer(cols = c(intro_inferred_date, fst_sample_date, last_sample_date), names_to = "type", values_to = "year") %>%
+  mutate(clade_size = if_else(type == "last_sample_date", 
+                              foco_n,
+                              as.integer(1))) %>%
+  mutate(size_grp = cut(clade_size, 
+                        breaks = c(0,1,10,50,100),
+                        labels = c("0-1", "2-10", "11-50", "51-100"),
+                        right = T
+          )) %>%
+  mutate(size_grp = scale(clade_size)) %>%
+  mutate(size_grp = as.numeric(size_grp)) %>%
+  mutate(text = if_else(type == "last_sample_date", #make it character for the label
+                        as.character(clade_size),
+                        " ")) %>%
+  mutate(lineage = "WN02") %>% #temporary may want to remove for subclade work
+  left_join(t, by = c("intro_num")) %>%
+  dplyr::rename(intro = intro_num) #change names to match script from original plot from EU WNV paper
+
+
+clade_size = c("0-1" = as.integer(8),
+               "2-10" = as.integer(9),
+               "11-50" = as.integer(10),
+               "51-100" = as.integer(15))
+
+type_val = c( "fst_sample_date" = 23,
+             "intro_inferred_date" = 22,
+             "last_sample_date" = 21)
+
+type_val2 = c( "fst_sample_date" = 23,
+             "last_sample_date" = 21)
+
+#ylab = unique(paste0(intro_long$intro, " (",intro_long$fst_sample_loc, ")"))
+
+```
+
+```{r}
+
+#temp
+col_lin1 = c("WN02" = "#F8766D")
+
+intro_long_4_plot = intro_long %>%
+    dplyr::filter(foco_n > 2) %>%
+    mutate(clade = rep(1:n_distinct(intro), each = 3))
+
+color_col = intro_long_4_plot$inferred_persistence
+
+p_intro = intro_long_4_plot %>%
+  ggplot(aes(y = clade)) +
+  geom_line(aes(x = year, group = clade, color = color_col), 
+           size = 1, alpha = 0.8) +
+  geom_point(aes(x = year, fill = color_col,  
+                 shape = type, size = size_grp), color = "white") +
+  scale_color_brewer(palette = "Dark2") +
+  scale_fill_brewer(palette = "Dark2") +
+  scale_shape_manual(values = type_val) +
+  scale_size(range = c(2.5,10)) +
+  theme_classic() +
+  theme(axis.title = element_text(size = 16),
+        axis.text = element_text(size = 16),
+        axis.title.x = element_blank(),
+        legend.text = element_text(size = 16),
+        legend.title = element_blank(),
+        legend.position = c(0.2,0.9)) +
+  labs(y = "Clade") +  # Change y-axis title
+  guides(size = "none",
+        #shape = guide_legend(override.aes = list(color = "black")), 
+        shape = "none",
+        fill = "none"
+         )
+
+p_intro
+ggsave("data_output/p_intro_timeline.png", p_intro, width = 6, height = 6, units = "in")
+```
+
+
+p_intro sans inferred data
+plotting to highlight only the sampled intro date
+```{r}
+intro_long_sampled = intro_long %>%
+  filter(type != "intro_inferred_date") %>%
+  filter(foco_n > 1)
+  
+p_intro2 = ggplot(intro_long_sampled, aes(y = intro)) +
+  geom_line(aes(x = year, group = intro, color = inferred_persistence), 
+            size = 1, alpha = 0.8) +
+  geom_point(aes(x = year, fill = inferred_persistence,  
+                 shape = type, size = size_grp), color = "white") +
+  scale_color_brewer(palette = "Dark2") +
+  scale_fill_brewer(palette = "Dark2") +
+  scale_shape_manual(values = type_val2) +
+  scale_size(range = c(2.5,10)) +
+  theme_classic() +
+
+  guides(size = "none",
+        shape = guide_legend(override.aes = list(color = "black")), 
+         fill = "none",
+        # color = "none"
+         )
+
+p_intro2
+ggsave("data_output/p_intro_timeline2.png", p_intro2, width = 11, height = 8, units = "in")
+
+```
+
+
