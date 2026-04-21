@@ -8,8 +8,20 @@
 #' @export
 fasta_combine <- function(fasta_list, verbose = TRUE) {
 
-  if (!is.list(fasta_list) || length(fasta_list) == 0) {
-    stop("fasta_list must be a non-empty list of DNAStringSet objects")
+  # Fix 1: separate type and length checks for clearer error messages
+  if (!is.list(fasta_list)) {
+    stop("fasta_list must be a list of DNAStringSet objects, got: ", class(fasta_list))
+  }
+  if (length(fasta_list) == 0) {
+    stop("fasta_list must be a non-empty list")
+  }
+
+  # Fix 2: validate that every element is a DNAStringSet
+  not_dna <- !purrr::map_lgl(fasta_list, is, "DNAStringSet")
+  if (any(not_dna)) {
+    stop("All elements of fasta_list must be DNAStringSet objects. ",
+         "Non-DNAStringSet elements at positions: ",
+         paste(which(not_dna), collapse = ", "))
   }
 
   combined <- do.call(c, fasta_list)
