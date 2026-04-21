@@ -1,0 +1,7 @@
+.Rproj.user
+.Rhistory
+.DS_store
+*.Rproj
+
+# Claude session change log
+CLAUDE_CHANGES.md

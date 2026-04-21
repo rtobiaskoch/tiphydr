@@ -69,9 +69,7 @@ make_test_biostring <- function() {
 #'
 #' @return Biostrings::DNAStringSet, single sequence named "WNV_REF_KU877344"
 make_test_ref <- function() {
-  r <- Biostrings::DNAStringSet(.ref_seq)
-  names(r) <- "WNV_REF_KU877344"
-  r
+  Biostrings::DNAStringSet(c(WNV_REF_KU877344 = .ref_seq))
 }
 
 #' Metadata tibble — 4 rows, deliberately excludes EXTRA_005.
