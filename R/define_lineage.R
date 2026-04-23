@@ -43,9 +43,9 @@ define_lineage <- function(alignment, ref, muts, type = "nuc", verbose = TRUE) {
 
   if (type == "aa") {
     # Find first ATG in reference to establish CDS start
-    atg_matches <- Biostrings::matchPattern("ATG", ref[[1]])
-    if (length(atg_matches) == 0L) stop("No ATG start codon found in ref")
-    cds_start <- Biostrings::start(atg_matches)[1]
+    # Use detect_sequence_start() to find modal start position
+    start_info <- detect_sequence_start(ref, pattern = "ATG", verbose = verbose)
+    cds_start <- start_info$position
 
     # Translate all sequences from CDS start; fuzzy codons become "X"
     cds_seqs   <- Biostrings::subseq(alignment, start = cds_start)
