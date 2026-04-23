@@ -1,66 +1,91 @@
-# R script to translate sequences and identify amino acid location
+# Example: Translate DNA and identify amino acid locations
+#
+# This example shows a complete workflow using detect_sequence_start()
+# and find_residue() to identify amino acid positions in DNA sequences.
 
-if (!requireNamespace("BiocManager", quietly = TRUE)) {
-  install.packages("BiocManager")
-  BiocManager::install("Biostrings")
-}
-
-rm(list = ls())
-source(".Rprofile") #loads get_start_met and fina_aa_loc
-# Load the Biostrings package
 library(Biostrings)
-library(tidyverse)
+library(dplyr)
 
-#>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-#USER INPUT
-#>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-data <- readDNAStringSet('results/.fasta')
-ref = "nc_009942"
-K_loc_filter = 1331
-M_loc_filter
+# Create example DNA sequences (starting with ATG)
+dna_sequences <- DNAStringSet(c(
+  "Seq1" = "ATGAAAAAATTTTAG",       # M K K F stop
+  "Seq2" = "ATGAAAAAATAG",          # M K K stop
+  "Seq3" = "ATGAAAAAAAAATTAG"       # M K K K F stop
+))
 
-#>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-#ID STARTING INDEX FOR TRANSLATION
-#>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+# ========================================================================
+# Step 1: Detect the consensus start codon position
+# ========================================================================
+# Find the modal ATG position across all sequences
+start_info <- detect_sequence_start(
+  dna_sequences,
+  pattern = "ATG",
+  verbose = TRUE
+)
 
-start_codons = get_start_met(data)
+modal_start <- start_info$position
 
-start_index_mode = start_codons %>%
-  group_by(start_codon_position) %>%
-  count %>%
-  ungroup %>%
-  filter(n == max(n))
+# ========================================================================
+# Step 2: Find amino acid locations
+# ========================================================================
+# Method 1: Auto-detect start position (uses ATG by default)
+K_locations_auto <- find_residue(
+  dna_sequences,
+  pattern = "K",
+  verbose = TRUE
+)
 
-start_index_ref = start_codons %>%
-  filter(str_detect(tolower(sequence_id), ref))
+print("Lysine (K) locations (auto-start):")
+print(K_locations_auto)
 
-if(start_index_ref$start_codon_position != start_index_mode$start_codon_position) {
-  cat("\n Warning: start codon position mode doesn't match the reference")
-}
+# Method 2: Specify a custom start position
+K_locations_custom <- find_residue(
+  dna_sequences,
+  pattern = "K",
+  start_position = 1,
+  verbose = FALSE
+)
 
-#>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-#CALL FUNCTION AND ID 
-#>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+print("Lysine (K) locations (position 1):")
+print(K_locations_custom)
 
-# Call the function
-K <- find_aa_loc(data, aa = "K", 
-                 start_codon = F, 
-                 start_index = 97)
+# ========================================================================
+# Step 3: Find multiple amino acids
+# ========================================================================
+multi_aa <- find_residue(
+  dna_sequences,
+  pattern = c("K", "M", "F"),
+  verbose = FALSE
+)
 
-K_filter = K %>%
-  filter(location == K_loc_filter)
+print("Multiple amino acids:")
+print(multi_aa)
 
-K_count = K %>%
-  group_by(amino_acid, location) %>%
-  count() %>%
-  filter(n > 10 & n <4000)
+# ========================================================================
+# Step 4: Analysis and filtering
+# ========================================================================
+# Count amino acids per sequence
+aa_counts <- multi_aa %>%
+  group_by(sequence_name, pattern) %>%
+  summarise(count = n(), .groups = "drop")
 
-#>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-#CALL FUNCTION AND ID 
-#>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-# Call the function
-M <- find_aa_loc(data, aa = "M", 
-                 start_codon = F, 
-                 start_index = 97)
+print("Amino acid counts per sequence:")
+print(aa_counts)
 
-  
+# Find sequences with K at position 2
+K_at_pos_2 <- K_locations_auto %>%
+  filter(location == 2)
+
+print("Sequences with K at position 2:")
+print(K_at_pos_2)
+
+# ========================================================================
+# Step 5: Get translated sequences for validation
+# ========================================================================
+aa_sequences <- translate_from_position(
+  dna_sequences,
+  start_position = modal_start
+)
+
+print("Translated sequences:")
+print(aa_sequences)

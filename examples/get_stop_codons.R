@@ -1,34 +1,48 @@
-#>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-# --------------------------------  H E A D E R -------------------------------------------------
-#>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-# Load required libraries
+# Example: Find stop codons using find_residue()
+#
+# This example shows how to use find_residue() to locate all stop codons
+# (TAA, TAG, TGA) in a set of DNA sequences.
 
 library(Biostrings)
 library(dplyr)
-library(stringr)
 
-
-#pulls get_aa_mut function
-
-# >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-#  R E A D 
-# >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-
-fasta0 = readDNAStringSet("results/alignment_downsampled_trimmed.fasta")
-
+# Create example DNA sequences
 dna_sequences <- DNAStringSet(c(
-  "Seq1" = "AATGCCGTAGTTGAATAA",  # ATG in frame 2 (pos 2), TGA in frame 1 (pos 11)
-  "Seq2" = "CATGGGATGCAA",         # Two ATGs (frame 1 pos 2, frame 3 pos 8)
-  "Seq3" = "TTTATTAA"          # ATG in frame 3 (pos 4)
+  "Seq1" = "AATGCCGTAGTTGAATAA",  # TAA at position 17, TGA at position 11
+  "Seq2" = "CATGGGATGCAA",        # TAG at position 10
+  "Seq3" = "TTTATTAA"             # TAA at position 6
 ))
 
-# Search for all stop codons
+# Define stop codon patterns
 stop_codons <- c("TAA", "TAG", "TGA")
 
-test = find_nucleotide_patterns(dna_sequences, stop_codons, frame = 1)
-results <- find_nucleotide_patterns(fasta0, stop_codons, frame = 1)
+# Find all stop codons in the sequences
+result <- find_residue(dna_sequences, pattern = stop_codons, verbose = FALSE)
 
+# Result is a tibble with:
+# - sequence_name: ID of the sequence
+# - location: position in the DNA sequence
+# - pattern: which stop codon (TAA, TAG, or TGA)
+print(result)
 
-count_stop = results %>%
-  group_by(sequence_id) %>%
-  summarise(count = sum(count))
+# Summary: count stop codons per sequence
+stop_codon_count <- result %>%
+  group_by(sequence_name) %>%
+  summarise(
+    total_stops = n(),
+    .groups = "drop"
+  )
+
+print(stop_codon_count)
+
+# Advanced: count by stop codon type
+stop_by_type <- result %>%
+  group_by(sequence_name, pattern) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  pivot_wider(
+    names_from = pattern,
+    values_from = count,
+    values_fill = 0
+  )
+
+print(stop_by_type)

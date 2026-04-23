@@ -1,45 +1,41 @@
-get_start_met <- function(dna_string_set) {
-  # Initialize vectors to store results
-  sequence_ids <- c()
-  start_positions <- c()
-  frames <- c()
-  
-  # Loop through each sequence in the DNAStringSet
-  for (i in seq_along(dna_string_set)) {
-    seq <- dna_string_set[[i]]
-    seq_name <- names(dna_string_set)[i]
-    
-    # Find the position of the first start codon (ATG)
-    start_codon <- "ATG"
-    start_pos <- matchPattern(start_codon, seq)
-    
-    # If a start codon is found, record its position and frame
-    if (length(start_pos) > 0) {
-      start_index <- start(start_pos)[1]
-      frame <- (start_index - 1) %% 3  # Calculate the frame (0, 1, or 2)
-      sequence_ids <- c(sequence_ids, seq_name)
-      start_positions <- c(start_positions, start_index)
-      frames <- c(frames, frame)
-    } else {
-      # If no start codon is found, record NA
-      sequence_ids <- c(sequence_ids, seq_name)
-      start_positions <- c(start_positions, NA)
-      frames <- c(frames, NA)
-    }
-  }
-  
-  # Create a data frame from the results
-  results_df <- data.frame(
-    sequence_id = sequence_ids,
-    start_codon_position = start_positions,
-    frame = frames,
-    stringsAsFactors = FALSE
-  )
-  
-  # Return the data frame
-  return(results_df)
-}
+# Example: Detect the modal start codon position using detect_sequence_start()
+#
+# This example shows how to use detect_sequence_start() to find the most
+# common (modal) ATG start codon position across a set of DNA sequences.
 
-# Example usage
-#results_df <- get_start_met(dna_sequences)
-#print(results_df)
+library(Biostrings)
+library(dplyr)
+
+# Create example DNA sequences with ATG start codons
+dna_sequences <- DNAStringSet(c(
+  "Seq1" = "ATGAAAAAACTAG",      # ATG at position 1
+  "Seq2" = "ATGAAATTCTAA",       # ATG at position 1
+  "Seq3" = "GGGATGCCCTAG",       # ATG at position 4
+  "Seq4" = "ATGCCCCAA"           # ATG at position 1
+))
+
+# Find the modal (most common) start codon position
+# Returns a list with:
+#   - position: the most frequently occurring position
+#   - table: frequency table of all positions found
+start_info <- detect_sequence_start(
+  dna_sequences,
+  pattern = "ATG",
+  verbose = TRUE
+)
+
+# Access the modal position
+modal_position <- start_info$position
+cat("Modal ATG position:", modal_position, "\n")
+
+# View the frequency table
+cat("\nFrequency table of start codon positions:\n")
+print(start_info$table)
+
+# Common workflow: use this to establish a consensus translation start
+# then translate all sequences from that position
+aa_sequences <- translate_from_position(
+  dna_sequences,
+  start_position = modal_position
+)
+print(aa_sequences)
