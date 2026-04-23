@@ -26,6 +26,7 @@
 #' }
 #'
 #' @importFrom Biostrings matchPattern start
+#' @importFrom methods is
 search_pattern_in_xstring <- function(xstring, pattern) {
   # --- Input validation ------------------------------------------------------
   # Ensure pattern is character

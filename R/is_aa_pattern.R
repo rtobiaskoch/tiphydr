@@ -18,13 +18,15 @@
 #' For ambiguous characters (e.g., 'A' is both AA and nucleotide),
 #' amino acid classification is prioritized, returning TRUE.
 #'
-#' @examples
-#' is_aa_pattern("K")  # TRUE
-#' is_aa_pattern("ATG")  # FALSE (nucleotide start codon)
-#' is_aa_pattern("A")  # TRUE (prioritizes AA)
-#' is_aa_pattern("XYZ")  # FALSE (invalid characters)
+#' @keywords internal
 #'
-#' @export
+#' @examples
+#' \dontrun{
+#'   is_aa_pattern("K")  # TRUE
+#'   is_aa_pattern("ATG")  # FALSE (nucleotide start codon)
+#'   is_aa_pattern("A")  # TRUE (prioritizes AA)
+#'   is_aa_pattern("XYZ")  # FALSE (invalid characters)
+#' }
 is_aa_pattern <- function(pattern) {
   # Validate input: must be character and non-empty
   if (!is.character(pattern) || length(pattern) == 0 || nchar(pattern) == 0) {

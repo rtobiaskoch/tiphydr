@@ -50,6 +50,7 @@
 #' @importFrom dplyr tibble bind_rows
 #' @importFrom purrr map_df
 #' @importFrom Biostrings DNAStringSet AAStringSet
+#' @importFrom methods is
 find_residue <- function(xstring_set,
                          pattern,
                          start_position = NULL,

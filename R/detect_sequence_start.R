@@ -22,7 +22,8 @@
 #'
 #' If no sequences contain the pattern, an error is raised.
 #'
-#' @keywords internal
+#' @export
+#' @importFrom methods is
 #'
 #' @examples
 #' \dontrun{

@@ -21,6 +21,7 @@
 #' }
 #'
 #' @export
+#' @importFrom methods is
 translate_from_position <- function(xstring_set, start_position = 1) {
   # --- Input validation ------------------------------------------------------
   if (!is(xstring_set, "DNAStringSet")) {
