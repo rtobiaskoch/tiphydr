@@ -20,7 +20,9 @@ GISAID-style headers. Treated as a fixed string, not a regular expression.}
 \value{
 A \code{tibble} with \code{length(names)} columns and one row per
 sequence. Columns are typed as \code{character}; missing fields are
-\code{NA_character_}.
+\code{NA_character_}. Note: empty fields produced by consecutive delimiters
+(e.g. \code{"WNV||CO"}) are also converted to \code{NA} without a warning,
+as they are indistinguishable from padding.
 }
 \description{
 Splits delimited metadata embedded in sequence header names (e.g. GISAID-style
