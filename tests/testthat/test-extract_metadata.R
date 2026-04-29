@@ -111,8 +111,10 @@ test_that("pads with NA and warns when a header has fewer fields than names", {
     "fewer fields than `names`"
   )
 
-  # Short row: strain_id should be NA
+  # Full row: all fields correct
   expect_equal(result$strain_id[1], "NY10_001")
+  # Short row: present fields not corrupted, missing field is NA
+  expect_equal(result$state[2], "WY")
   expect_true(is.na(result$strain_id[2]))
 })
 
