@@ -62,35 +62,25 @@ extract_metadata <- function(biostring, names, delim = "|") {
   # NOTE: called as base::names() because the `names` argument shadows base::names()
   headers <- base::names(biostring)
 
-  # Count the maximum number of fields across all headers to determine split size.
-  # Adding 1 because n_delims = count of delimiters, not count of fields.
-  max_delims <- max(stringr::str_count(headers, stringr::fixed(delim)))
-  max_fields <- max_delims + 1L
+  # Count delimiters per header to determine the split width and detect short headers.
+  n_delims <- stringr::str_count(headers, stringr::fixed(delim))
 
-  # Validate: caller cannot request more fields than exist in the longest header
-  if (length(names) > max_fields) {
-    stop(
-      "names has ", length(names), " columns but longest header has only ",
-      max_fields, " fields. Cannot extract more fields than exist."
-    )
-  }
-
-  # Split each header into max_fields pieces.
-  # str_split_fixed returns a [n_sequences × max_fields] character matrix.
-  # - Headers with MORE fields than max_fields: truncated (never happens due to max calculation)
-  # - Headers with FEWER fields: missing positions are padded with "".
+  # str_split_fixed(n = k) puts the remainder in the last column rather than
+  # truncating, so we must split wide enough to separate ALL fields first, then
+  # subset. split_n is the larger of (max real fields) and (requested fields) so
+  # the matrix always has at least length(names) columns (padded with "" when needed).
+  split_n <- max(max(n_delims) + 1L, length(names))
   mat <- stringr::str_split_fixed(
     string  = headers,
     pattern = stringr::fixed(delim),
-    n       = max_fields
+    n       = split_n
   )
 
-  # Keep only the first length(names) columns; extra fields are silently dropped.
-  mat <- mat[, 1:length(names), drop = FALSE]
+  # Subset to the requested number of columns; any extra columns are dropped.
+  mat <- mat[, seq_len(length(names)), drop = FALSE]
 
-  # Detect short headers: count delimiters; fewer than (length(names) - 1) means
+  # Detect short headers: fewer delimiters than (length(names) - 1) means
   # the header cannot fill all requested fields.
-  n_delims  <- stringr::str_count(headers, stringr::fixed(delim))
   short_idx <- which(n_delims < (length(names) - 1L))
 
   if (length(short_idx) > 0L) {
