@@ -98,3 +98,46 @@ test_that("works with a custom delimiter", {
 
   expect_equal(result$state, c("CO", "WY"))
 })
+
+test_that("pads with NA and warns when a header has fewer fields than names", {
+  # Build a set where one sequence is missing the 4th pipe-field
+  bs <- Biostrings::DNAStringSet(c(
+    "WNV|2021|CO|NY10_001" = "ATCG",   # 4 fields — OK
+    "WNV|2020|WY"          = "GCTA"    # 3 fields — short by 1
+  ))
+
+  expect_warning(
+    result <- extract_metadata(bs, names = c("virus", "year", "state", "strain_id"), delim = "|"),
+    "fewer fields than `names`"
+  )
+
+  # Short row: strain_id should be NA
+  expect_equal(result$strain_id[1], "NY10_001")
+  expect_true(is.na(result$strain_id[2]))
+})
+
+test_that("warning message lists the affected sequence names", {
+  bs <- Biostrings::DNAStringSet(c(
+    "WNV|2021|CO|NY10_001" = "ATCG",
+    "WNV|2020|WY"          = "GCTA"
+  ))
+
+  expect_warning(
+    extract_metadata(bs, names = c("virus", "year", "state", "strain_id"), delim = "|"),
+    "WNV\\|2020\\|WY"   # the short header should appear in the warning text
+  )
+})
+
+test_that("no warning when all headers have exactly the right number of fields", {
+  bs <- make_test_biostring()   # all 6 sequences have 4 pipe-fields
+  expect_no_warning(
+    extract_metadata(bs, names = c("virus", "year", "state", "strain_id"), delim = "|")
+  )
+})
+
+test_that("no warning when headers have more fields than names", {
+  bs <- make_test_biostring()   # 4 pipe-fields; request only 2
+  expect_no_warning(
+    extract_metadata(bs, names = c("virus", "year"), delim = "|")
+  )
+})
