@@ -44,3 +44,55 @@ test_that("errors when delim is not a single non-empty string", {
     "delim must be a single non-empty string"
   )
 })
+
+test_that("returns a tibble with correct dimensions for exact field count", {
+  # make_test_biostring() names: "WNV|YEAR|STATE|STRAIN_ID" (4 pipe-fields)
+  bs     <- make_test_biostring()
+  result <- extract_metadata(bs, names = c("virus", "year", "state", "strain_id"), delim = "|")
+
+  expect_s3_class(result, "tbl_df")
+  expect_equal(nrow(result), 6L)   # 6 sequences in fixture
+  expect_equal(ncol(result), 4L)
+  expect_named(result, c("virus", "year", "state", "strain_id"))
+})
+
+test_that("extracts correct values from pipe-delimited headers", {
+  bs     <- make_test_biostring()
+  result <- extract_metadata(bs, names = c("virus", "year", "state", "strain_id"), delim = "|")
+
+  # First sequence: "WNV|2021|CO|NY10_001"
+  expect_equal(result$virus[1],     "WNV")
+  expect_equal(result$year[1],      "2021")
+  expect_equal(result$state[1],     "CO")
+  expect_equal(result$strain_id[1], "NY10_001")
+})
+
+test_that("extra header fields beyond length(names) are silently dropped", {
+  bs     <- make_test_biostring()
+  # Request only 2 columns — 3rd and 4th fields are dropped
+  result <- extract_metadata(bs, names = c("virus", "year"), delim = "|")
+
+  expect_equal(ncol(result), 2L)
+  expect_named(result, c("virus", "year"))
+  expect_equal(result$virus[1], "WNV")
+  expect_equal(result$year[1],  "2021")
+})
+
+test_that("works with a single sequence", {
+  bs     <- make_test_biostring()[1]   # subset to 1 sequence
+  result <- extract_metadata(bs, names = c("virus", "year", "state", "strain_id"), delim = "|")
+
+  expect_equal(nrow(result), 1L)
+  expect_equal(result$strain_id, "NY10_001")
+})
+
+test_that("works with a custom delimiter", {
+  # Build a DNAStringSet with slash-delimited names
+  bs <- Biostrings::DNAStringSet(c(
+    "WNV/2021/CO" = "ATCG",
+    "WNV/2020/WY" = "GCTA"
+  ))
+  result <- extract_metadata(bs, names = c("virus", "year", "state"), delim = "/")
+
+  expect_equal(result$state, c("CO", "WY"))
+})

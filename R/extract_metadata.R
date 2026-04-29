@@ -58,6 +58,48 @@ extract_metadata <- function(biostring, names, delim = "|") {
 
   # ── Core logic ───────────────────────────────────────────────────────────────
 
-  # Placeholder — implemented in Task 2
-  NULL
+  # Pull raw header strings from the XStringSet names slot.
+  # NOTE: called as base::names() because the `names` argument shadows base::names()
+  headers <- base::names(biostring)
+
+  # Count the maximum number of fields across all headers to determine split size.
+  # Adding 1 because n_delims = count of delimiters, not count of fields.
+  max_delims <- max(stringr::str_count(headers, stringr::fixed(delim)))
+  max_fields <- max_delims + 1L
+
+  # Split each header into at most max_fields pieces.
+  # str_split_fixed returns a [n_sequences × max_fields] character matrix.
+  # - Headers with MORE fields than max_fields: truncated (never happens due to max calculation)
+  # - Headers with FEWER fields: missing positions are padded with "".
+  mat <- stringr::str_split_fixed(
+    string  = headers,
+    pattern = stringr::fixed(delim),
+    n       = max_fields
+  )
+
+  # Keep only the first length(names) columns; extra fields are silently dropped.
+  mat <- mat[, 1:length(names), drop = FALSE]
+
+  # Detect short headers: count delimiters; fewer than (length(names) - 1) means
+  # the header cannot fill all requested fields.
+  n_delims  <- stringr::str_count(headers, stringr::fixed(delim))
+  short_idx <- which(n_delims < (length(names) - 1L))
+
+  if (length(short_idx) > 0L) {
+    warning(
+      "The following sequence headers have fewer fields than `names` ",
+      "— missing fields set to NA:\n",
+      paste(headers[short_idx], collapse = "\n"),
+      call. = FALSE
+    )
+  }
+
+  # Convert "" padding produced by str_split_fixed for short headers to NA
+  mat[mat == ""] <- NA_character_
+
+  # Coerce to tibble and apply caller-supplied column names
+  result           <- tibble::as_tibble(mat, .name_repair = "minimal")
+  colnames(result) <- names
+
+  result
 }
