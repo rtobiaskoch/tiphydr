@@ -67,7 +67,15 @@ extract_metadata <- function(biostring, names, delim = "|") {
   max_delims <- max(stringr::str_count(headers, stringr::fixed(delim)))
   max_fields <- max_delims + 1L
 
-  # Split each header into at most max_fields pieces.
+  # Validate: caller cannot request more fields than exist in the longest header
+  if (length(names) > max_fields) {
+    stop(
+      "names has ", length(names), " columns but longest header has only ",
+      max_fields, " fields. Cannot extract more fields than exist."
+    )
+  }
+
+  # Split each header into max_fields pieces.
   # str_split_fixed returns a [n_sequences × max_fields] character matrix.
   # - Headers with MORE fields than max_fields: truncated (never happens due to max calculation)
   # - Headers with FEWER fields: missing positions are padded with "".
