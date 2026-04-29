@@ -40,6 +40,11 @@ extract_metadata <- function(biostring, names, delim = "|") {
     stop("names must be a non-empty character vector")
   }
 
+  # NA values in names would produce silently-unnamed columns in the output tibble
+  if (anyNA(names)) {
+    stop("names must not contain NA values")
+  }
+
   # Duplicate column names would produce an ambiguous tibble
   dupe_names <- names[duplicated(names)]
   if (length(dupe_names) > 0L) {
@@ -47,7 +52,7 @@ extract_metadata <- function(biostring, names, delim = "|") {
   }
 
   # delim must be a single non-empty string — passed to stringr::fixed()
-  if (!is.character(delim) || length(delim) != 1L || !nzchar(delim)) {
+  if (!is.character(delim) || length(delim) != 1L || is.na(delim) || !nzchar(delim)) {
     stop("delim must be a single non-empty string")
   }
 

@@ -1,6 +1,6 @@
 # test-extract_metadata.R — unit tests for extract_metadata()
 # Shared fixture: make_test_biostring() from helper-fixtures.R
-# Returns DNAStringSet with 6 sequences named "WNV|YEAR|STATE|STRAIN_ID"
+# Names follow schema: VIRUS|YEAR|STATE|STRAIN_ID (e.g. "WNV|2021|CO|NY10_001")
 
 test_that("errors when biostring is not an XStringSet", {
   expect_error(
