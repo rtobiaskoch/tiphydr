@@ -68,9 +68,11 @@ test_that("extracts correct values from pipe-delimited headers", {
 })
 
 test_that("extra header fields beyond length(names) are silently dropped", {
-  bs     <- make_test_biostring()
-  # Request only 2 columns — 3rd and 4th fields are dropped
-  result <- extract_metadata(bs, names = c("virus", "year"), delim = "|")
+  bs <- make_test_biostring()
+  # Request only 2 columns — 3rd and 4th fields are dropped with no warning
+  expect_no_warning(
+    result <- extract_metadata(bs, names = c("virus", "year"), delim = "|")
+  )
 
   expect_equal(ncol(result), 2L)
   expect_named(result, c("virus", "year"))

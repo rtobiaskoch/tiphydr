@@ -58,6 +58,11 @@ extract_metadata <- function(biostring, names, delim = "|") {
 
   # ── Core logic ───────────────────────────────────────────────────────────────
 
+  # Guard against empty input — max() on integer(0) returns -Inf with a warning
+  if (length(biostring) == 0L) {
+    stop("biostring must contain at least one sequence")
+  }
+
   # Pull raw header strings from the XStringSet names slot.
   # NOTE: called as base::names() because the `names` argument shadows base::names()
   headers <- base::names(biostring)
@@ -67,8 +72,9 @@ extract_metadata <- function(biostring, names, delim = "|") {
 
   # str_split_fixed(n = k) puts the remainder in the last column rather than
   # truncating, so we must split wide enough to separate ALL fields first, then
-  # subset. split_n is the larger of (max real fields) and (requested fields) so
-  # the matrix always has at least length(names) columns (padded with "" when needed).
+  # subset. split_n is the larger of (max fields across all headers) and
+  # (requested fields) — the latter handles the case where all headers are shorter
+  # than length(names), ensuring the matrix has enough columns to subset from.
   split_n <- max(max(n_delims) + 1L, length(names))
   mat <- stringr::str_split_fixed(
     string  = headers,
@@ -77,7 +83,7 @@ extract_metadata <- function(biostring, names, delim = "|") {
   )
 
   # Subset to the requested number of columns; any extra columns are dropped.
-  mat <- mat[, seq_len(length(names)), drop = FALSE]
+  mat <- mat[, seq_along(names), drop = FALSE]
 
   # Detect short headers: fewer delimiters than (length(names) - 1) means
   # the header cannot fill all requested fields.
