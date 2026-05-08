@@ -4,7 +4,7 @@
 \alias{define_lineage}
 \title{Assign lineage labels to sequences based on diagnostic mutations}
 \usage{
-define_lineage(alignment, ref, muts, type = "nuc", verbose = TRUE)
+define_lineage(alignment, ref, muts, type = "nuc", verbose = TRUE, gff = NULL)
 }
 \arguments{
 \item{alignment}{DNAStringSet; pre-aligned sequences, all equal length.
@@ -14,11 +14,17 @@ Must be output of fasta_trim_ref() to satisfy coordinate contract.}
 first ATG start codon when type = "aa".}
 
 \item{muts}{dataframe with columns: lineage (chr), pos (int), residue (chr).
-pos is in reference coordinates (ungapped).}
+pos is in reference coordinates (ungapped). Alternatively, a dataframe with
+columns lineage, gene, pos, residue for gene-relative amino acid mutations
+(requires gff to be supplied).}
 
-\item{type}{"nuc" (default) or "aa"}
+\item{type}{"nuc" (default) or "aa" for what the mutations are defined as.
+Ignored when muts has a gene column.}
 
 \item{verbose}{logical; if TRUE prints lineage count table (default TRUE)}
+
+\item{gff}{length-1 character path to a GFF3 file, or NULL (default). Required
+when muts has a gene column with non-"nuc" gene names.}
 }
 \value{
 dataframe with columns strain (chr) and lineage (chr)

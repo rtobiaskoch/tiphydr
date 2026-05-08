@@ -5,6 +5,22 @@ editor_options:
 ---
 
 # Functions to Build
+--------------------------------------------------------------------------------
+#
+split_gene.R
+take gff and generate separate fasta files for each gene for input sequences
+
+#dont do yet 
+## explode_tree.R
+### input: 
+- tree 
+
+#dont do yet
+#plot_explode_tree.R
+
+
+
+Built Functions:
 
 ## fasta_read.R 
 ### desc: 
@@ -97,12 +113,4 @@ example: dataframe(lineage = c("NY10", "NY10""), pos = c(1331, 2513), aa = c("K"
 -print table with lineage and number ID'd
 
 
---------------------------------------------------------------------------------
 
-#dont do yet 
-## explode_tree.R
-### input: 
-- tree 
-
-#dont do yet
-#plot_explode_tree.R

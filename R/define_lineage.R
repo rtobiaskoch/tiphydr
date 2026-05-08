@@ -13,27 +13,62 @@
 #' @param ref length-1 DNAStringSet; reference sequence. Used to locate the
 #'   first ATG start codon when type = "aa".
 #' @param muts dataframe with columns: lineage (chr), pos (int), residue (chr).
-#'   pos is in reference coordinates (ungapped).
-#' @param type "nuc" (default) or "aa"
+#'   pos is in reference coordinates (ungapped). Alternatively, a dataframe with
+#'   columns lineage, gene, pos, residue for gene-relative amino acid mutations
+#'   (requires gff to be supplied).
+#' @param type "nuc" (default) or "aa" for what the mutations are defined as.
+#'   Ignored when muts has a gene column.
 #' @param verbose logical; if TRUE prints lineage count table (default TRUE)
+#' @param gff length-1 character path to a GFF3 file, or NULL (default). Required
+#'   when muts has a gene column with non-"nuc" gene names.
 #'
 #' @return dataframe with columns strain (chr) and lineage (chr)
 #' @export
-define_lineage <- function(alignment, ref, muts, type = "nuc", verbose = TRUE) {
+define_lineage <- function(alignment, ref, muts, type = "nuc", verbose = TRUE, gff = NULL) {
 
   # ── Input validation ─────────────────────────────────────────────────────────
 
-  # Ensure muts has the expected columns for lineage assignment
-  required_cols <- c("lineage", "pos", "residue")
-  if (!all(required_cols %in% names(muts))) {
-    stop("muts must have columns: ", paste(required_cols, collapse = ", "))
+  has_gene_col <- "gene" %in% names(muts)
+
+  if (has_gene_col) {
+    # Gene-relative pathway: muts must have lineage, gene, pos, residue
+    required_cols <- c("lineage", "gene", "pos", "residue")
+    if (!all(required_cols %in% names(muts))) {
+      stop("muts must have columns: ", paste(required_cols, collapse = ", "))
+    }
+    non_nuc_genes <- unique(muts$gene[tolower(muts$gene) != "nuc"])
+    if (length(non_nuc_genes) > 0L && is.null(gff)) {
+      stop(
+        "muts has gene-relative positions (", paste(non_nuc_genes, collapse = ", "),
+        ") but no 'gff' path was supplied. Provide gff = path_to_gff."
+      )
+    }
+    if (!is.null(gff)) {
+      muts_resolved <- resolve_mut_positions(muts, gff)
+    } else {
+      # All rows are gene == "nuc" — fall through to existing nuc path
+      has_gene_col <- FALSE
+    }
+  } else {
+    # Ensure muts has the expected columns for the existing pathway
+    required_cols <- c("lineage", "pos", "residue")
+    if (!all(required_cols %in% names(muts))) {
+      stop("muts must have columns: ", paste(required_cols, collapse = ", "))
+    }
+  } #end if has_gene_col
+
+  # Only nucleotide and amino acid modes are supported (existing pathway)
+  if (!type %in% c("nuc", "aa")) stop("type must be 'nuc' or 'aa'")
+
+  if (any(Biostrings::width(alignment) != Biostrings::width(ref))) {
+    warning("Genome lengths of input alignment do not match ref.
+            run fasta_trim_ref(fasta, ref) Ensure genomes are aligned and trimmed.")
   }
 
-  # Only nucleotide and amino acid modes are supported
-  if (!type %in% c("nuc", "aa")) stop("type must be 'nuc' or 'aa'")
 
   # Sequence names become the `strain` column in the output
   seq_names <- names(alignment)
+
 
   # ── Build residue lookup function ────────────────────────────────────────────
   # Returns the base/residue at a given position for a given sequence index.
@@ -44,11 +79,23 @@ define_lineage <- function(alignment, ref, muts, type = "nuc", verbose = TRUE) {
   if (type == "aa") {
     # Find first ATG in reference to establish CDS start
     # Use detect_sequence_start() to find modal start position
+
+    #DETERMINE STARTING POINT --------------------------------------------------
+
     start_info <- detect_sequence_start(ref, pattern = "ATG", verbose = verbose)
     cds_start <- start_info$position
 
+    if(cds_start != 1){
+      warning("Your reference sequences does not start with a start codon")
+    }
+
+
     # Translate all sequences from CDS start; fuzzy codons become "X"
     cds_seqs   <- Biostrings::subseq(alignment, start = cds_start)
+    # Replace gap/ambiguous characters with N so translation treats them as fuzzy codons ("X")
+    cds_seqs   <- Biostrings::chartr(".-", "NN", cds_seqs)
+
+
     translated <- Biostrings::translate(cds_seqs, if.fuzzy.codon = "X")
 
     get_residue <- function(seq_idx, pos) {
@@ -64,51 +111,107 @@ define_lineage <- function(alignment, ref, muts, type = "nuc", verbose = TRUE) {
     }
   }
 
-  # ── Group mutations by lineage ───────────────────────────────────────────────
-  # Split muts into a named list: lineage name → dataframe of (pos, residue) rows
-  lineage_muts <- split(
-    muts[, c("pos", "residue"), drop = FALSE],
-    muts$lineage
-  )
-
   # ── Assign lineage to each sequence ─────────────────────────────────────────
-  # For each sequence, test all lineages and keep only those where every
-  # required mutation is present. If multiple match, prefer the one with the
-  # most mutations (most specific). Ties → alphabetical with warning.
+  # Two paths depending on whether muts carries a gene column:
+  #
+  #   has_gene_col == TRUE  — per-row dispatch: nucleotide or codon-AA comparison
+  #                           chosen per row from muts_resolved$comparison_type
+  #   has_gene_col == FALSE — existing path: one get_residue closure for the
+  #                           whole call, governed by the `type` parameter
 
-  assign_one <- function(seq_idx) {
+  if (has_gene_col) {
 
-    # Collect lineages where ALL required mutations are satisfied
-    matched <- purrr::keep(names(lineage_muts), function(lin) {
-      lin_muts <- lineage_muts[[lin]]
-      all(purrr::map2_lgl(
-        lin_muts$pos, lin_muts$residue,
-        function(p, r) {
-          residue_val <- get_residue(seq_idx, p)
-          !is.na(residue_val) && residue_val == toupper(r)
-        }
-      ))
-    })
-
-    if (length(matched) == 0L) return("unknown")
-    if (length(matched) == 1L) return(matched)
-
-    # Multiple matches: pick the lineage with the most required mutations (most specific)
-    n_muts      <- purrr::map_int(matched, ~ nrow(lineage_muts[[.x]]))
-    max_n       <- max(n_muts)
-    candidates  <- matched[n_muts == max_n]
-
-    if (length(candidates) > 1L) {
-      warning(
-        "Sequence '", seq_names[seq_idx],
-        "' matched lineages with equal specificity: ",
-        paste(sort(candidates), collapse = ", "),
-        ". Assigning first alphabetically."
-      )
-      candidates <- sort(candidates)[1]
+    # Per-row residue extractor: returns the nucleotide or translated amino acid
+    # at the position specified by this mutation row for a given sequence.
+    get_residue_row <- function(seq_idx, row) {
+      if (row$comparison_type == "nuc") {
+        pos <- row$pos
+        if (pos > Biostrings::width(alignment[seq_idx])) return(NA_character_)
+        toupper(as.character(Biostrings::subseq(alignment[seq_idx], pos, pos)))
+      } else {
+        # "aa": extract 3-nt codon, replace gap chars with N, translate
+        cs <- row$codon_start
+        if (cs + 2L > Biostrings::width(alignment[seq_idx])) return(NA_character_)
+        codon_str <- gsub("[.-]", "N",
+                          as.character(Biostrings::subseq(alignment[seq_idx], cs, cs + 2L)))
+        unname(as.character(
+          Biostrings::translate(Biostrings::DNAStringSet(codon_str), if.fuzzy.codon = "X")
+        ))
+      }
     }
 
-    candidates
+    lineage_muts_r <- split(muts_resolved, muts_resolved$lineage)
+
+    assign_one <- function(seq_idx) {
+      matched <- purrr::keep(names(lineage_muts_r), function(lin) {
+        df <- lineage_muts_r[[lin]]
+        all(purrr::map_lgl(seq_len(nrow(df)), function(ri) {
+          val <- get_residue_row(seq_idx, df[ri, , drop = FALSE])
+          !is.na(val) && val == toupper(df$residue[ri])
+        }))
+      })
+
+      if (length(matched) == 0L) return("unknown")
+      if (length(matched) == 1L) return(matched)
+
+      n_muts     <- purrr::map_int(matched, ~ nrow(lineage_muts_r[[.x]]))
+      candidates <- matched[n_muts == max(n_muts)]
+
+      if (length(candidates) > 1L) {
+        warning(
+          "Sequence '", seq_names[seq_idx],
+          "' matched lineages with equal specificity: ",
+          paste(sort(candidates), collapse = ", "),
+          ". Assigning first alphabetically."
+        )
+        candidates <- sort(candidates)[1L]
+      }
+      candidates
+    }
+
+  } else {
+
+    # ── Group mutations by lineage (existing pathway) ──────────────────────────
+    # Split muts into a named list: lineage name → dataframe of (pos, residue) rows
+    lineage_muts <- split(
+      muts[, c("pos", "residue"), drop = FALSE],
+      muts$lineage
+    )
+
+    assign_one <- function(seq_idx) {
+
+      # Collect lineages where ALL required mutations are satisfied
+      matched <- purrr::keep(names(lineage_muts), function(lin) {
+        lin_muts <- lineage_muts[[lin]]
+        all(purrr::map2_lgl(
+          lin_muts$pos, lin_muts$residue,
+          function(p, r) {
+            residue_val <- get_residue(seq_idx, p)
+            !is.na(residue_val) && residue_val == toupper(r)
+          }
+        ))
+      })
+
+      if (length(matched) == 0L) return("unknown")
+      if (length(matched) == 1L) return(matched)
+
+      # Multiple matches: pick the lineage with the most required mutations (most specific)
+      n_muts     <- purrr::map_int(matched, ~ nrow(lineage_muts[[.x]]))
+      max_n      <- max(n_muts)
+      candidates <- matched[n_muts == max_n]
+
+      if (length(candidates) > 1L) {
+        warning(
+          "Sequence '", seq_names[seq_idx],
+          "' matched lineages with equal specificity: ",
+          paste(sort(candidates), collapse = ", "),
+          ". Assigning first alphabetically."
+        )
+        candidates <- sort(candidates)[1L]
+      }
+      candidates
+    }
+
   }
 
   # Apply assignment across all sequences; returns character vector of lineage names

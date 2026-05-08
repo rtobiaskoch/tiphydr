@@ -1,10 +1,17 @@
 Repo: TIdy PHYlodynamics in R TiPhydR ("Ti-fighter")
 
 PURPOSE:
-develop suite of R functions for faster manipulation and editing of sequence data that often contains associated metadata
-that often needs to be filtered, replaced etc based off of the sequence file name.
+develop suite of R functions for:
+1. Faster manipulation:
+  a. more efficient cleaning of sequence data that often contains associated metadata
+      that needs to be filtered, replaced etc based off of the sequence file name.
 
-manipulate split and modify trees based off ancestral node and tip info
+2. Working with Mutations
+  a. get positions of particular amino acid sequences. useful for start and stop codons
+  a. use mutation for lineage calling
+
+3. Working with Trees:
+  a. manipulate, split and modify trees based off ancestral node and tip info.
 
 To prevent reinventing the wheel ensure no current functions exist that accomplish the same thing I am proposing
 Use Tidyverse styling

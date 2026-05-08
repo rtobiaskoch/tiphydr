@@ -2,6 +2,9 @@
 .Rhistory
 .DS_store
 *.Rproj
+examples/
+inst/
+data-raw/git
 
 # Claude session change log
 CLAUDE_CHANGES.md
