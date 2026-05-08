@@ -51,7 +51,7 @@ test_that("muts missing required columns throws error", {
 test_that("invalid type throws error", {
   expect_error(
     define_lineage(make_test_biostring(), make_test_ref(), make_test_muts(),
-                   type = "protein"),
+                   input_type = "protein"),
     "type must be"
   )
 })
@@ -142,7 +142,7 @@ test_that("gene column all-nuc without gff falls through to nuc path", {
   expect_equal(result$lineage[result$strain == "WNV|2020|CO|NS2A_002"], "PARTIAL_A")
 })
 
-# ── type = "aa" pathway tests ─────────────────────────────────────────────────
+# ── input_type = "aa" pathway tests ─────────────────────────────────────────────────
 # AA positions counted from first ATG in reference (pos 1):
 #   AA 2 = pos 4-6  (diagnostic: A→G → Glu/E)
 #   AA 4 = pos 10-12 (diagnostic: A→C → Gln/Q)
@@ -150,7 +150,7 @@ test_that("gene column all-nuc without gff falls through to nuc path", {
 test_that("aa pathway: strict match requires all AA mutations", {
   result <- suppressMessages(
     define_lineage(make_test_biostring(), make_test_ref(),
-                   make_test_aa_muts(), type = "aa")
+                   make_test_aa_muts(), input_type = "aa")
   )
   expect_equal(result$lineage[result$strain == "WNV|2021|CO|NY10_001"], "NY10")
 })
@@ -158,7 +158,7 @@ test_that("aa pathway: strict match requires all AA mutations", {
 test_that("aa pathway: single AA mutation assigns single-gene lineage", {
   result <- suppressMessages(
     define_lineage(make_test_biostring(), make_test_ref(),
-                   make_test_aa_muts(), type = "aa")
+                   make_test_aa_muts(), input_type = "aa")
   )
   # NS2A_002: AA2=E only → NS4A; AA4=K (wildtype)
   expect_equal(result$lineage[result$strain == "WNV|2020|CO|NS2A_002"], "NS4A")
@@ -169,7 +169,7 @@ test_that("aa pathway: single AA mutation assigns single-gene lineage", {
 test_that("aa pathway: wildtype assigns unknown", {
   result <- suppressMessages(
     define_lineage(make_test_biostring(), make_test_ref(),
-                   make_test_aa_muts(), type = "aa")
+                   make_test_aa_muts(), input_type = "aa")
   )
   expect_equal(result$lineage[result$strain == "WNV|2019|CO|OTHER_004"], "unknown")
 })
@@ -177,7 +177,7 @@ test_that("aa pathway: wildtype assigns unknown", {
 test_that("aa pathway: most-specific lineage wins on multiple AA matches", {
   result <- suppressMessages(
     define_lineage(make_test_biostring(), make_test_ref(),
-                   make_test_aa_muts(), type = "aa")
+                   make_test_aa_muts(), input_type = "aa")
   )
   # NY10_001 matches NY10 (2 AA muts), NS4A (1), and NS4B (1) → NY10 wins
   expect_equal(result$lineage[result$strain == "WNV|2021|CO|NY10_001"], "NY10")
@@ -186,7 +186,7 @@ test_that("aa pathway: most-specific lineage wins on multiple AA matches", {
 test_that("aa pathway: fuzzy start codon does not block downstream AA lineage assignment", {
   result <- suppressMessages(
     define_lineage(make_test_biostring(), make_test_ref(),
-                   make_test_aa_muts(), type = "aa")
+                   make_test_aa_muts(), input_type = "aa")
   )
   # NST_NS2A_004: pos3=N → codon 1 = ATN → AA1 = X (fuzzy), but codon 2 = GAA → AA2 = E
   # The sequencing error at the start codon does not prevent NS4A assignment
@@ -196,7 +196,7 @@ test_that("aa pathway: fuzzy start codon does not block downstream AA lineage as
 test_that("aa pathway assigns same lineages as nuc pathway (regression)", {
   result_aa <- suppressMessages(
     define_lineage(make_test_biostring(), make_test_ref(),
-                   make_test_aa_muts(), type = "aa")
+                   make_test_aa_muts(), input_type = "aa")
   )
   result_nuc <- suppressMessages(
     define_lineage(make_test_biostring(), make_test_ref(), make_test_muts())
@@ -204,4 +204,43 @@ test_that("aa pathway assigns same lineages as nuc pathway (regression)", {
   aa_lineages  <- result_aa$lineage[order(result_aa$strain)]
   nuc_lineages <- result_nuc$lineage[order(result_nuc$strain)]
   expect_equal(aa_lineages, nuc_lineages)
+})
+
+# ── ambiguous lineage tests ────────────────────────────────────────────────────
+
+test_that("nuc pathway: N at diagnostic position returns 'ambiguous'", {
+  alignment <- c(make_test_biostring(), make_test_ambiguous_seq())
+  result <- suppressWarnings(suppressMessages(
+    define_lineage(alignment, make_test_ref(), make_test_muts(), verbose = FALSE)
+  ))
+  expect_equal(result$lineage[result$strain == "WNV|2023|CO|AMB_001"], "ambiguous")
+})
+
+test_that("nuc pathway: N at non-diagnostic position does not trigger 'ambiguous'", {
+  # NST_NS2A_004 has N at pos3 (non-diagnostic) → NS4A, not ambiguous
+  # EXTRA_NY10_005 has N at pos14 (non-diagnostic) → NY10, not ambiguous
+  result <- suppressMessages(
+    define_lineage(make_test_biostring(), make_test_ref(), make_test_muts(), verbose = FALSE)
+  )
+  expect_equal(result$lineage[result$strain == "WNV|2019|CO|NST_NS2A_004"],   "NS4A")
+  expect_equal(result$lineage[result$strain == "WNV|2021|NM|EXTRA_NY10_005"], "NY10")
+})
+
+test_that("aa pathway: N at diagnostic nuc position (fuzzy codon) returns 'ambiguous'", {
+  alignment <- c(make_test_biostring(), make_test_ambiguous_seq())
+  result <- suppressWarnings(suppressMessages(
+    define_lineage(alignment, make_test_ref(), make_test_aa_muts(),
+                   input_type = "aa", verbose = FALSE)
+  ))
+  expect_equal(result$lineage[result$strain == "WNV|2023|CO|AMB_001"], "ambiguous")
+})
+
+test_that("ambiguous sequence triggers a warning naming the sequence", {
+  alignment <- c(make_test_biostring(), make_test_ambiguous_seq())
+  expect_warning(
+    suppressMessages(
+      define_lineage(alignment, make_test_ref(), make_test_muts(), verbose = FALSE)
+    ),
+    regexp = "AMB_001"
+  )
 })

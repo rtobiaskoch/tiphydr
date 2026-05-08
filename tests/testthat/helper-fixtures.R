@@ -181,6 +181,19 @@ make_test_gene_muts <- function() {
   )
 }
 
+#' Sequence with an ambiguous base AT a diagnostic position (pos4 = N).
+#'
+#' pos4 is diagnostic for NY10 and NS4A; N there means the lineage cannot be
+#' determined. pos10 = A (wildtype) so NS4B is definitively ruled out.
+#' Expected output from define_lineage(): "ambiguous".
+#'
+#' @return Biostrings::DNAStringSet, single sequence named "WNV|2023|CO|AMB_001"
+make_test_ambiguous_seq <- function() {
+  seq <- .mutate_seq()           # wildtype: all A at diagnostic positions
+  substr(seq, 4, 4) <- "N"      # N at diagnostic pos4
+  Biostrings::DNAStringSet(c(`WNV|2023|CO|AMB_001` = seq))
+}
+
 #' Minimal in-memory phylo object using the same tip labels as make_test_biostring().
 #'
 #' Tips are the 4 fully-annotated WNV pipe-delimited headers.
