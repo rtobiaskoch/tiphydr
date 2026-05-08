@@ -21,6 +21,33 @@ test_that("tree_tip_swap preserves Ntip and Nnode", {
   expect_equal(ape::Nnode(result), ape::Nnode(tree))
 })
 
+test_that("tree_tip_swap renames via partial id substring match", {
+  tree <- make_test_tree()
+  # pass only the accession portion — should find the full tip label
+  id  <- c("NY10_001", "NS2A_002")
+  new <- c("SampleA", "SampleB")
+
+  result <- tree_tip_swap(tree, id = id, newnames = new)
+
+  expect_true("SampleA" %in% result$tip.label)
+  expect_true("SampleB" %in% result$tip.label)
+  # unaffected tips stay as-is
+  expect_true("WNV|2022|WY|NS4B_003"  %in% result$tip.label)
+  expect_true("WNV|2019|CO|OTHER_004" %in% result$tip.label)
+})
+
+test_that("tree_tip_swap errors on ambiguous pattern matching multiple tips", {
+  tree <- make_test_tree()
+  # "CO" appears in three of the four tip labels — ambiguous
+  id  <- c("CO", "NY10_001")
+  new <- c("X", "Y")
+
+  expect_error(
+    tree_tip_swap(tree, id = id, newnames = new),
+    regexp = "ambiguous"
+  )
+})
+
 test_that("tree_tip_swap errors on unmatched id when match = TRUE", {
   tree <- make_test_tree()
   id   <- c(tree$tip.label[1:3], "WNV|2099|XX|GHOST_999")  # GHOST not in tree
