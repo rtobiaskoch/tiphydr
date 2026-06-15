@@ -4,27 +4,27 @@
 \alias{define_lineage}
 \title{Assign lineage labels to sequences based on diagnostic mutations}
 \usage{
-define_lineage(alignment, ref, muts, type = "nuc", verbose = TRUE, gff = NULL)
+define_lineage(alignment, ref = NULL, muts, mut_type, verbose = TRUE)
 }
 \arguments{
-\item{alignment}{DNAStringSet; pre-aligned sequences, all equal length.
-Must be output of fasta_trim_ref() to satisfy coordinate contract.}
+\item{alignment}{DNAStringSet (nucleotides) or AAStringSet (amino acids);
+pre-aligned sequences, all equal length. A nucleotide alignment must be the
+output of fasta_trim_ref() to satisfy the coordinate contract. An AAStringSet
+is only valid with mut_type = "aa" and is indexed directly without translation.}
 
-\item{ref}{length-1 DNAStringSet; reference sequence. Used to locate the
-first ATG start codon when type = "aa".}
+\item{ref}{length-1 DNAStringSet; reference sequence. Required for a
+nucleotide alignment: used to locate the first ATG start codon when
+mut_type = "aa", and to sanity-check coordinates. Ignored (and may be NULL)
+when alignment is an AAStringSet.}
 
 \item{muts}{dataframe with columns: lineage (chr), pos (int), residue (chr).
-pos is in reference coordinates (ungapped). Alternatively, a dataframe with
-columns lineage, gene, pos, residue for gene-relative amino acid mutations
-(requires gff to be supplied).}
+pos is in reference coordinates (ungapped) for mut_type = "nuc", or an
+amino acid position from the CDS start for mut_type = "aa".}
 
-\item{type}{"nuc" (default) or "aa" for what the mutations are defined as.
-Ignored when muts has a gene column.}
+\item{mut_type}{"nuc" or "aa" — what the mutations are defined as. Required;
+there is no default, so the caller must always state mutation type.}
 
 \item{verbose}{logical; if TRUE prints lineage count table (default TRUE)}
-
-\item{gff}{length-1 character path to a GFF3 file, or NULL (default). Required
-when muts has a gene column with non-"nuc" gene names.}
 }
 \value{
 dataframe with columns strain (chr) and lineage (chr)
@@ -38,4 +38,8 @@ alignment position N equals ungapped reference position N. Positions in
 Assignment is strict: all mutations for a lineage must be present. If a
 sequence matches multiple lineages, the one with the most required mutations
 (most specific) is assigned. Ties are broken alphabetically with a warning.
+
+For gene-relative amino acid mutations, resolve them to alignment coordinates
+first with resolve_mut_positions(), then pass its \code{aa_start} column as \code{pos}
+with mut_type = "aa". See that function's documentation for the workflow.
 }

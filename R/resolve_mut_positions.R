@@ -2,8 +2,10 @@
 #'
 #' Converts a mutation table that uses gene names and amino acid positions into
 #' one that carries the absolute genomic nucleotide position of each codon. This
-#' resolved table is consumed by [define_lineage()] when its `gff` argument is
-#' supplied.
+#' is a preprocessing step for [define_lineage()]: supply `cds_start` to compute
+#' the `aa_start` column, then pass it as `pos` with `mut_type = "aa"`, e.g.
+#' `resolve_mut_positions(muts, gff, cds_start = 97L) |>`
+#' `dplyr::mutate(pos = aa_start) |> define_lineage(aln, ref, mut_type = "aa")`.
 #'
 #' Rows where `gene == "nuc"` are passed through unchanged with
 #' `comparison_type = "nuc"` and `codon_start = NA`. All other rows are treated

@@ -13,17 +13,24 @@ wn02 = find_residue(trimmed, pattern = "A") %>%
 #
 # wn02 %>% dplyr::group_by(location) %>% dplyr::count()
 
-resolve_mut_positions(muts_gff, gff = "data/genomic.gff", cds_start = 97L)
+# Resolve gene-relative AA mutations to alignment AA coordinates, then feed
+# aa_start in as `pos` for the mut_type = "aa" pathway (gff is no longer a
+# define_lineage argument).
+muts_gff_resolved <- resolve_mut_positions(
+  muts_gff,
+  gff = "data/genomic.gff",
+  cds_start = 97L
+) %>%
+  dplyr::mutate(pos = aa_start)
 
 lineages = define_lineage(
   trimmed[1:10],
   ref,
-  muts_gff,
-  input_type = "aa",
-  gff = "data/genomic.gff"
+  muts_gff_resolved,
+  mut_type = "aa"
 )
 
-lineages = define_lineage(trimmed, ref, muts, input_type = "aa")
+lineages = define_lineage(trimmed, ref, muts, mut_type = "aa")
 
 lineages %>%
   dplyr::group_by(lineage) %>%

@@ -16,6 +16,7 @@ result <- define_lineage(
   f,
   r,
   m,
+  mut_type = "nuc",
   verbose = TRUE
 )
 result
@@ -25,7 +26,7 @@ result2 <- define_lineage(
   f,
   r,
   ma,
-  input_type = "aa",
+  mut_type = "aa",
   verbose = TRUE
 )
 
@@ -37,6 +38,6 @@ result3 <- define_lineage(
   f2,
   r,
   ma,
-  input_type = "aa",
+  mut_type = "aa",
   verbose = TRUE
 )

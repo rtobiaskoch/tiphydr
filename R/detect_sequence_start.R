@@ -4,9 +4,10 @@
 #' (typically "ATG" start codon) across a DNAStringSet. Useful for
 #' determining the consensus CDS start position before translation.
 #'
-#' @param xstring_set A `DNAStringSet` containing sequences to analyze.
+#' @param xstring_set A `DNAStringSet` or `AAStringSet` containing sequences to
+#'   analyze.
 #' @param pattern A character string representing the pattern to search for.
-#'   Default is "ATG" (start codon).
+#'   Default is "ATG" (nucleotide start codon); use "M" for an AAStringSet.
 #' @param verbose Logical; if TRUE (default), prints a summary message
 #'   showing the detected position and counts of sequences with/without pattern.
 #'
@@ -38,8 +39,10 @@
 #' @importFrom Biostrings DNAStringSet
 detect_sequence_start <- function(xstring_set, pattern = "ATG", verbose = TRUE) {
   # --- Input validation ------------------------------------------------------
-  if (!is(xstring_set, "DNAStringSet")) {
-    stop("xstring_set must be a DNAStringSet")
+  # Accept nucleotides (DNAStringSet, e.g. "ATG" start) or amino acids
+  # (AAStringSet, e.g. "M" start). search_pattern_in_xstring() handles both.
+  if (!is(xstring_set, "DNAStringSet") && !is(xstring_set, "AAStringSet")) {
+    stop("xstring_set must be a DNAStringSet or AAStringSet")
   }
 
   if (!is.character(pattern) || length(pattern) != 1 || nchar(pattern) == 0) {

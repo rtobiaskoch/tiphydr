@@ -9,18 +9,26 @@ tree_tip_swap(tree, id, newnames, match = TRUE)
 \arguments{
 \item{tree}{ape::phylo object.}
 
-\item{id}{Character vector of values matching \code{tree$tip.label}.}
+\item{id}{Character vector of substrings to search for within
+\code{tree$tip.label}.}
 
 \item{newnames}{Character vector of replacement labels (same length as \code{id}).}
 
-\item{match}{Logical (default TRUE). When TRUE, errors if any value in
-\code{id} is absent from \code{tree$tip.label}.}
+\item{match}{Logical (default TRUE). When TRUE, errors if any pattern in
+\code{id} does not match any tip label.}
 }
 \value{
 ape::phylo with updated tip labels.
 }
 \description{
-Matches each value in \code{id} against \code{tree$tip.label} and replaces the
-matched tip with the parallel value from \code{newnames}. Tips with no match
-are left unchanged.
+Searches each value in \code{id} as a literal substring within \code{tree$tip.label}
+and replaces any matched tip with the parallel value from \code{newnames}. This
+allows short identifiers (e.g. accession IDs) to match longer tip labels
+formatted as \code{VIRUS|YEAR|STATE|ACCESSION}. Tips with no match are left
+unchanged.
+}
+\details{
+Matching uses \code{grepl(..., fixed = TRUE)} — literal substring, not regex.
+This avoids misinterpretation of \code{|} and other metacharacters that commonly
+appear in tip label formatting.
 }

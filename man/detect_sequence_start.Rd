@@ -7,10 +7,11 @@
 detect_sequence_start(xstring_set, pattern = "ATG", verbose = TRUE)
 }
 \arguments{
-\item{xstring_set}{A \code{DNAStringSet} containing sequences to analyze.}
+\item{xstring_set}{A \code{DNAStringSet} or \code{AAStringSet} containing sequences to
+analyze.}
 
 \item{pattern}{A character string representing the pattern to search for.
-Default is "ATG" (start codon).}
+Default is "ATG" (nucleotide start codon); use "M" for an AAStringSet.}
 
 \item{verbose}{Logical; if TRUE (default), prints a summary message
 showing the detected position and counts of sequences with/without pattern.}

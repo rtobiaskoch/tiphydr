@@ -36,8 +36,10 @@ when \code{cds_start} is not supplied}
 \description{
 Converts a mutation table that uses gene names and amino acid positions into
 one that carries the absolute genomic nucleotide position of each codon. This
-resolved table is consumed by \code{\link[=define_lineage]{define_lineage()}} when its \code{gff} argument is
-supplied.
+is a preprocessing step for \code{\link[=define_lineage]{define_lineage()}}: supply \code{cds_start} to compute
+the \code{aa_start} column, then pass it as \code{pos} with \code{mut_type = "aa"}, e.g.
+\verb{resolve_mut_positions(muts, gff, cds_start = 97L) |>}
+\code{dplyr::mutate(pos = aa_start) |> define_lineage(aln, ref, mut_type = "aa")}.
 }
 \details{
 Rows where \code{gene == "nuc"} are passed through unchanged with
