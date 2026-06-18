@@ -10,7 +10,11 @@ fasta_name_switch(fasta, match_col, replace_col)
 \item{fasta}{Biostrings::XStringSet (e.g. DNAStringSet) whose \code{names()}
 are matched against \code{match_col}.}
 
-\item{match_col}{Character vector of ids to match against \code{names(fasta)}.}
+\item{match_col}{Character vector of ids matched against \code{names(fasta)}.
+A match_col entry matches a fasta name if it occurs
+anywhere within it (e.g. "accession" matches
+"accession|date|deme"), so exact full-name values still
+work as before.}
 
 \item{replace_col}{Character vector of replacement names, same length and
 order as \code{match_col}.}

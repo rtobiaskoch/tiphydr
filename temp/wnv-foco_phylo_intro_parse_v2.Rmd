@@ -146,7 +146,7 @@ df_tree2 = df_tree %>%
 
 tree2 = as.treedata(df_tree2)
 
-p_tree = ggtree(tree2) +
+p_tree =(tree2) +
   geom_nodepoint(aes(color = `Inferred State`), alpha = 0.7, size = 2.5) +
  # geom_text(aes(label=node), ,size = 2, hjust=-.3) +
   scale_color_brewer(palette = "Dark2") +

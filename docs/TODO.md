@@ -15,20 +15,17 @@ take gff and generate separate fasta files for each gene for input sequences
 - match pattern
 - replacement name
 
-## explode_tree.R
-### input: 
-- tree 
-- dta ancestral traits 
-
-### function
-- review temp/wnv-foco_phylo_intro_parse_v2.qmd for example of parsing introductions
-- output should be a list of 
-
+## explode_tree.R  ✅ DONE
+Implemented in R/explode_tree.R with reusable helpers:
+most_likely_deme.R, node_dates_from_timetree.R, build_tree_df.R,
+detect_introductions.R. Detects introductions into all demes using the
+continued-transmission definition (reintroductions counted separately) and
+returns a tidy introductions table plus split subtrees per multi-tip clade.
 
 
 ## DEFINE_LINEAGES.R
-- [ ] create a simpler function just with the input being the absolute amino acid position and residue as required input. User can use the resolve positions function
-- [ ] save existing function as define_lineages_dev.R in sandbox
+- [x] create a simpler function just with the input being the absolute amino acid position and residue as required input. User can use the resolve positions function
+- [x] save existing function as define_lineages_dev.R in sandbox
 
 
 
