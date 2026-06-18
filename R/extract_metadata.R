@@ -10,11 +10,15 @@
 #' @param names Character vector of column names for the output tibble. Length
 #'   controls how many fields are extracted; extra header fields are silently
 #'   dropped. The first element is conventionally the sequence ID or strain name.
+#'   Default \code{NULL} extracts all fields from the widest header and names
+#'   them \code{V1}, \code{V2}, \ldots
 #' @param delim Single string used as the field delimiter. Default \code{"|"} for
 #'   GISAID-style headers. Treated as a fixed string, not a regular expression.
 #'
-#' @return A \code{tibble} with \code{length(names)} columns and one row per
-#'   sequence. Columns are typed as \code{character}; missing fields are
+#' @return A \code{tibble} with a leading \code{taxa} column (the full original
+#'   header string) followed by one column per extracted field (all fields when
+#'   \code{names = NULL}, otherwise \code{length(names)} columns), and one row
+#'   per sequence. All columns are \code{character}; missing fields are
 #'   \code{NA_character_}. Note: empty fields produced by consecutive delimiters
 #'   (e.g. \code{"WNV||CO"}) are also converted to \code{NA} without a warning,
 #'   as they are indistinguishable from padding.
@@ -28,7 +32,7 @@
 #'   "hCoV-19/USA/CA-CDPH/2021|EPI_ISL_999999|2021-06-15" = "GCTA"
 #' ))
 #' extract_metadata(seqs, names = c("strain", "accession", "date"), delim = "|")
-extract_metadata <- function(biostring, names, delim = "|") {
+extract_metadata <- function(biostring, names = NULL, delim = "|") {
 
   # ── Input validation ─────────────────────────────────────────────────────────
 
@@ -37,20 +41,18 @@ extract_metadata <- function(biostring, names, delim = "|") {
     stop("biostring must be an XStringSet (e.g. DNAStringSet)")
   }
 
-  # names must be a non-empty character vector — controls output column count
-  if (!is.character(names) || length(names) == 0L) {
-    stop("names must be a non-empty character vector")
-  }
-
-  # NA values in names would produce silently-unnamed columns in the output tibble
-  if (anyNA(names)) {
-    stop("names must not contain NA values")
-  }
-
-  # Duplicate column names would produce an ambiguous tibble
-  dupe_names <- names[duplicated(names)]
-  if (length(dupe_names) > 0L) {
-    stop("names contains duplicate column names: ", paste(dupe_names, collapse = ", "))
+  # names, when provided, must be a non-empty character vector without NAs or dupes
+  if (!is.null(names)) {
+    if (!is.character(names) || length(names) == 0L) {
+      stop("names must be a non-empty character vector")
+    }
+    if (anyNA(names)) {
+      stop("names must not contain NA values")
+    }
+    dupe_names <- names[duplicated(names)]
+    if (length(dupe_names) > 0L) {
+      stop("names contains duplicate column names: ", paste(dupe_names, collapse = ", "))
+    }
   }
 
   # delim must be a single non-empty string — passed to stringr::fixed()
@@ -67,45 +69,51 @@ extract_metadata <- function(biostring, names, delim = "|") {
 
   # Pull raw header strings from the XStringSet names slot.
   # NOTE: called as base::names() because the `names` argument shadows base::names()
-  headers <- base::names(biostring)
-
-  # Count delimiters per header to determine the split width and detect short headers.
+  headers  <- base::names(biostring)
   n_delims <- stringr::str_count(headers, stringr::fixed(delim))
 
-  # str_split_fixed(n = k) puts the remainder in the last column rather than
-  # truncating, so we must split wide enough to separate ALL fields first, then
-  # subset. split_n is the larger of (max fields across all headers) and
-  # (requested fields) — the latter handles the case where all headers are shorter
-  # than length(names), ensuring the matrix has enough columns to subset from.
-  split_n <- max(max(n_delims) + 1L, length(names))
+  # Determine split width and effective output column names.
+  # When names = NULL: extract all fields from the widest header, auto-name V1, V2, ...
+  # When names is supplied: split wide enough to cover all headers OR all requested
+  # fields, then subset — str_split_fixed puts remainder in the last column so we
+  # must split at least as wide as the widest header before subsetting.
+  if (is.null(names)) {
+    split_n   <- max(n_delims) + 1L
+    names_out <- paste0("V", seq_len(split_n))
+  } else {
+    split_n   <- max(max(n_delims) + 1L, length(names))
+    names_out <- names
+  }
+
   mat <- stringr::str_split_fixed(
     string  = headers,
     pattern = stringr::fixed(delim),
     n       = split_n
   )
 
-  # Subset to the requested number of columns; any extra columns are dropped.
-  mat <- mat[, seq_along(names), drop = FALSE]
+  # Subset to the requested column count; irrelevant when names = NULL (keep all).
+  mat <- mat[, seq_along(names_out), drop = FALSE]
 
-  # Detect short headers: fewer delimiters than (length(names) - 1) means
-  # the header cannot fill all requested fields.
-  short_idx <- which(n_delims < (length(names) - 1L))
-
-  if (length(short_idx) > 0L) {
-    warning(
-      "The following sequence headers have fewer fields than `names` ",
-      "— missing fields set to NA:\n",
-      paste(headers[short_idx], collapse = "\n"),
-      call. = FALSE
-    )
+  # Warn when named extraction requests more fields than a header contains.
+  # Skipped for NULL names since we always extract exactly what is present.
+  if (!is.null(names)) {
+    short_idx <- which(n_delims < (length(names_out) - 1L))
+    if (length(short_idx) > 0L) {
+      warning(
+        "The following sequence headers have fewer fields than `names` ",
+        "— missing fields set to NA:\n",
+        paste(headers[short_idx], collapse = "\n"),
+        call. = FALSE
+      )
+    }
   }
 
   # Convert "" padding produced by str_split_fixed for short headers to NA
   mat[mat == ""] <- NA_character_
 
-  # Coerce to tibble and apply caller-supplied column names
   result           <- tibble::as_tibble(mat, .name_repair = "minimal")
-  colnames(result) <- names
+  colnames(result) <- names_out
+  result           <- tibble::add_column(result, taxa = headers, .before = 1L)
 
   result
 }

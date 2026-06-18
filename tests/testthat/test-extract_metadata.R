@@ -52,8 +52,8 @@ test_that("returns a tibble with correct dimensions for exact field count", {
 
   expect_s3_class(result, "tbl_df")
   expect_equal(nrow(result), 6L)   # 6 sequences in fixture
-  expect_equal(ncol(result), 4L)
-  expect_named(result, c("virus", "year", "state", "strain_id"))
+  expect_equal(ncol(result), 5L)   # taxa + 4 fields
+  expect_named(result, c("taxa", "virus", "year", "state", "strain_id"))
 })
 
 test_that("extracts correct values from pipe-delimited headers", {
@@ -61,6 +61,7 @@ test_that("extracts correct values from pipe-delimited headers", {
   result <- extract_metadata(bs, names = c("virus", "year", "state", "strain_id"), delim = "|")
 
   # First sequence: "WNV|2021|CO|NY10_001"
+  expect_equal(result$taxa[1],      "WNV|2021|CO|NY10_001")
   expect_equal(result$virus[1],     "WNV")
   expect_equal(result$year[1],      "2021")
   expect_equal(result$state[1],     "CO")
@@ -74,8 +75,8 @@ test_that("extra header fields beyond length(names) are silently dropped", {
     result <- extract_metadata(bs, names = c("virus", "year"), delim = "|")
   )
 
-  expect_equal(ncol(result), 2L)
-  expect_named(result, c("virus", "year"))
+  expect_equal(ncol(result), 3L)   # taxa + 2 fields
+  expect_named(result, c("taxa", "virus", "year"))
   expect_equal(result$virus[1], "WNV")
   expect_equal(result$year[1],  "2021")
 })
@@ -142,4 +143,29 @@ test_that("no warning when headers have more fields than names", {
   expect_no_warning(
     extract_metadata(bs, names = c("virus", "year"), delim = "|")
   )
+})
+
+test_that("names = NULL extracts all fields and names them V1, V2, ...", {
+  bs     <- make_test_biostring()   # headers: "WNV|YEAR|STATE|STRAIN_ID" (4 fields)
+  result <- extract_metadata(bs, delim = "|")
+
+  expect_s3_class(result, "tbl_df")
+  expect_equal(nrow(result), 6L)
+  expect_equal(ncol(result), 5L)   # taxa + 4 fields
+  expect_named(result, c("taxa", "V1", "V2", "V3", "V4"))
+  expect_equal(result$taxa[1], "WNV|2021|CO|NY10_001")
+  expect_equal(result$V1[1],   "WNV")
+  expect_equal(result$V4[1],   "NY10_001")
+})
+
+test_that("names = NULL produces no warning even when headers differ in field count", {
+  bs <- Biostrings::DNAStringSet(c(
+    "WNV|2021|CO|NY10_001" = "ATCG",
+    "WNV|2020|WY"          = "GCTA"   # shorter header — pads to V4 = NA, no warning
+  ))
+  expect_no_warning(result <- extract_metadata(bs, delim = "|"))
+
+  expect_equal(ncol(result), 5L)   # taxa + 4 fields (widest header)
+  expect_equal(result$taxa[2], "WNV|2020|WY")
+  expect_true(is.na(result$V4[2]))  # short header padded with NA
 })

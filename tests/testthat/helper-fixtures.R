@@ -207,6 +207,81 @@ make_test_tree <- function() {
 }
 
 # ---------------------------------------------------------------------------
+# Introduction-detection fixtures (explode_tree and helpers)
+# ---------------------------------------------------------------------------
+
+#' Small dated tree with a known introduction structure.
+#'
+#' Topology: ((tB1,tB2),(tA1,tC1)). Tip labels are pipe-delimited
+#' \code{strain|date|deme}. Branch lengths increase toward the tips so internal
+#' nodes are dated earlier than tips (a usable molecular clock).
+#'
+#' Intended deme states (set in make_intro_node_probs):
+#'   root            -> regionA
+#'   MRCA(tB1,tB2)   -> regionB  (an ESTABLISHED introduction, clade size 2)
+#'   MRCA(tA1,tC1)   -> regionA
+#'   tC1             -> regionC  (a SINGLETON introduction, clade size 1)
+#'   tA1             -> regionA  (no transition)
+#'
+#' @return ape::phylo with branch lengths.
+make_intro_tree <- function() {
+  # Branch lengths chosen so root-to-tip distance increases with sampling date
+  # (a valid molecular clock): depth 4->2019 ... depth 7->2022, +1yr per unit.
+  ape::read.tree(
+    text = paste0(
+      "((tB1|2020-01-01|regionB:2,tB2|2021-01-01|regionB:3):3,",
+      "(tA1|2019-01-01|regionA:2,tC1|2022-01-01|regionC:5):2);"
+    )
+  )
+}
+
+#' Node x deme probability matrix matching make_intro_tree().
+#'
+#' Tips are one-hot on their own deme (probability 1). Internal node states are
+#' assigned by MRCA so the fixture is robust to ape's node numbering.
+#'
+#' @param tree The phylo from make_intro_tree().
+#' @return data.frame with a node column + one column per deme.
+make_intro_node_probs <- function(tree = make_intro_tree()) {
+  ntip  <- ape::Ntip(tree)
+  demes <- c("regionA", "regionB", "regionC")
+
+  # Resolve internal node ids by MRCA (independent of ape numbering).
+  lbl       <- function(p) grep(p, tree$tip.label, value = TRUE)
+  root      <- ntip + 1L
+  node_B    <- ape::getMRCA(tree, c(lbl("^tB1"), lbl("^tB2")))
+  node_AC   <- ape::getMRCA(tree, c(lbl("^tA1"), lbl("^tC1")))
+
+  # State per node id: tips from their label deme, internals as documented.
+  tip_deme  <- vapply(strsplit(tree$tip.label, "|", fixed = TRUE),
+                      `[`, character(1), 3L)
+  state <- character(ntip + tree$Nnode)
+  state[seq_len(ntip)] <- tip_deme
+  state[root]    <- "regionA"
+  state[node_B]  <- "regionB"
+  state[node_AC] <- "regionA"
+
+  # One-hot probability matrix.
+  mat <- matrix(0, nrow = length(state), ncol = length(demes),
+                dimnames = list(NULL, demes))
+  mat[cbind(seq_along(state), match(state, demes))] <- 1
+
+  data.frame(node = seq_along(state), mat, check.names = FALSE)
+}
+
+#' Tip-date tibble matching make_intro_tree() (parsed from the tip labels).
+#'
+#' @param tree The phylo from make_intro_tree().
+#' @return tibble with tip_label and date (Date).
+make_intro_tip_dates <- function(tree = make_intro_tree()) {
+  tibble::tibble(
+    tip_label = tree$tip.label,
+    date = as.Date(vapply(strsplit(tree$tip.label, "|", fixed = TRUE),
+                          `[`, character(1), 2L))
+  )
+}
+
+# ---------------------------------------------------------------------------
 # File writer — single source of truth for on-disk fixtures
 # ---------------------------------------------------------------------------
 
