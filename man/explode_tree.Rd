@@ -5,8 +5,8 @@
 \title{Split a dated tree into introduction clades}
 \usage{
 explode_tree(
-  tree_path,
-  node_probs_path,
+  tree,
+  node_probs,
   confidence = 0.5,
   delim = "|",
   date_field = 2L,
@@ -14,11 +14,12 @@ explode_tree(
 )
 }
 \arguments{
-\item{tree_path}{Path to a Newick time tree whose tip labels embed a date
+\item{tree}{An \code{ape::phylo} time tree whose tip labels embed a date
 field (e.g. \code{strain|date|deme|...}).}
 
-\item{node_probs_path}{Path to a tab-separated node x deme probability table
-with a \code{node} column matching ape node numbering.}
+\item{node_probs}{A data frame with a \code{node} column (matching ape node
+numbering) and one column per deme holding state probabilities (e.g. TreeTime
+DTA output loaded with \code{read.delim()}).}
 
 \item{confidence}{Minimum node probability for an established introduction
 (default 0.5). Passed to \code{\link{detect_introductions}}. When internal

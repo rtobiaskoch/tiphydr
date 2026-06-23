@@ -16,7 +16,7 @@
 plot_tree_trait <- function(tree_df, trait, palette = "Dark2") {
   # --- Validate: was tree_df produced by build_tree_df()? --------------------
   # Checked against sentinel columns that build_tree_df() always produces.
-  sentinel_cols <- c("node", "parent", "label", "branch.length", "is_tip")
+  sentinel_cols <- c("node", "parent", "label", "branch.length", "is_tip", "confidence_state")
   missing_cols <- setdiff(sentinel_cols, names(tree_df))
   if (length(missing_cols) > 0) {
     stop(
@@ -63,6 +63,21 @@ plot_tree_trait <- function(tree_df, trait, palette = "Dark2") {
     by = c("parent" = "node")
   )
 
+  # --- Bin confidence_state into 4 quartile levels ---------------------------
+  # Used to double-encode confidence via point size and alpha — larger and more
+  # opaque = higher probability ancestral state assignment.
+  conf_breaks <- c(0, 0.25, 0.5, 0.75, 1.0)
+  conf_labels <- c("0-25%", "25-50%", "50-75%", "75-100%")
+  node_data <- dplyr::mutate(
+    node_data,
+    conf_level = cut(
+      confidence_state,
+      breaks        = conf_breaks,
+      labels        = conf_labels,
+      include.lowest = TRUE
+    )
+  )
+
   # --- Build discrete colour palette -----------------------------------------
   # brewer.pal minimum is 3; slice down to the actual number of trait levels.
   # na.omit: root node has NA for parent_trait — not a trait level.
@@ -86,16 +101,24 @@ plot_tree_trait <- function(tree_df, trait, palette = "Dark2") {
   ggtree::`%<+%`(p_base, node_data) +
     ggplot2::aes(color = parent_trait) +
     ggtree::geom_tippoint(
-      ggplot2::aes(color = .data[[trait]]),
-      size = 3
+      ggplot2::aes(color = .data[[trait]], size = conf_level, alpha = conf_level)
     ) +
     ggtree::geom_nodepoint(
-      ggplot2::aes(color = .data[[trait]]),
-      size = 2
+      ggplot2::aes(color = .data[[trait]], size = conf_level, alpha = conf_level)
     ) +
     ggplot2::scale_color_manual(
-      values = colors,
-      name = trait,
+      values       = colors,
+      name         = trait,
+      na.translate = FALSE
+    ) +
+    ggplot2::scale_size_manual(
+      values = c("0-25%" = 1, "25-50%" = 2, "50-75%" = 3, "75-100%" = 4),
+      name   = "Confidence",
+      na.translate = FALSE
+    ) +
+    ggplot2::scale_alpha_manual(
+      values = c("0-25%" = 0.25, "25-50%" = 0.5, "50-75%" = 0.75, "75-100%" = 1.0),
+      name   = "Confidence",
       na.translate = FALSE
     ) +
     ggplot2::theme_classic()

@@ -11,10 +11,11 @@
 #' all node demes come from \code{node_probs_path}; internal-node dates are
 #' inferred from the time tree (see \code{\link{node_dates_from_timetree}}).
 #'
-#' @param tree_path Path to a Newick time tree whose tip labels embed a date
+#' @param tree An \code{ape::phylo} time tree whose tip labels embed a date
 #'   field (e.g. \code{strain|date|deme|...}).
-#' @param node_probs_path Path to a tab-separated node x deme probability table
-#'   with a \code{node} column matching ape node numbering.
+#' @param node_probs A data frame with a \code{node} column (matching ape node
+#'   numbering) and one column per deme holding state probabilities (e.g. TreeTime
+#'   DTA output loaded with \code{read.delim()}).
 #' @param confidence Minimum node probability for an established introduction
 #'   (default 0.5). Passed to \code{\link{detect_introductions}}. When internal
 #'   transitions exist but none clear it, a warning reports the max available
@@ -36,20 +37,16 @@
 #'       only.}
 #'   }
 #' @export
-explode_tree <- function(tree_path, node_probs_path, confidence = 0.5,
+explode_tree <- function(tree, node_probs, confidence = 0.5,
                          delim = "|", date_field = 2L,
                          date_format = "%Y-%m-%d") {
 
-  if (!file.exists(tree_path)) {
-    stop("tree_path does not exist: ", tree_path)
+  if (!inherits(tree, "phylo")) {
+    stop("tree must be an ape::phylo object")
   }
-  if (!file.exists(node_probs_path)) {
-    stop("node_probs_path does not exist: ", node_probs_path)
+  if (!is.data.frame(node_probs) || !"node" %in% names(node_probs)) {
+    stop("node_probs must be a data frame with a 'node' column")
   }
-
-  tree <- ape::read.tree(tree_path)
-  # check.names = FALSE keeps deme names like "CO/Larimer" intact.
-  node_probs <- utils::read.delim(node_probs_path, check.names = FALSE)
 
   # Parse the date field out of each tip label. Split wide enough to isolate the
   # date column (the remainder collects in the final column).

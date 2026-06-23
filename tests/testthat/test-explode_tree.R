@@ -1,22 +1,6 @@
-# Write the in-memory fixtures to disk so explode_tree can read them as it would
-# real TreeTime output.
-write_intro_fixture <- function() {
-  tree <- make_intro_tree()
-  dir  <- withr::local_tempdir(.local_envir = parent.frame())
-
-  tree_path  <- file.path(dir, "tree.nwk")
-  probs_path <- file.path(dir, "node_probs.tsv")
-
-  ape::write.tree(tree, tree_path)
-  utils::write.table(make_intro_node_probs(tree), probs_path,
-                     sep = "\t", row.names = FALSE, quote = FALSE)
-
-  list(tree_path = tree_path, probs_path = probs_path)
-}
-
 test_that("explode_tree returns introductions and one subtree per multi-tip clade", {
-  f   <- write_intro_fixture()
-  res <- explode_tree(f$tree_path, f$probs_path)
+  tree <- make_intro_tree()
+  res  <- explode_tree(tree, make_intro_node_probs(tree))
 
   expect_named(res, c("introductions", "trees"))
 
@@ -30,23 +14,29 @@ test_that("explode_tree returns introductions and one subtree per multi-tip clad
   expect_equal(ape::Ntip(res$trees[[1]]), 2L)
   expect_setequal(
     res$trees[[1]]$tip.label,
-    grep("^tB", make_intro_tree()$tip.label, value = TRUE)
+    grep("^tB", tree$tip.label, value = TRUE)
   )
 })
 
-test_that("explode_tree errors on a missing input file", {
-  f <- write_intro_fixture()
-  expect_error(explode_tree("nope.nwk", f$probs_path), "does not exist")
-  expect_error(explode_tree(f$tree_path, "nope.tsv"), "does not exist")
+test_that("explode_tree errors when tree is not a phylo object", {
+  tree <- make_intro_tree()
+  expect_error(explode_tree("not_a_tree", make_intro_node_probs(tree)), "phylo")
+})
+
+test_that("explode_tree errors when node_probs lacks a node column", {
+  tree <- make_intro_tree()
+  expect_error(
+    explode_tree(tree, data.frame(regionA = 1, regionB = 0)),
+    "node"
+  )
 })
 
 test_that("explode_tree errors when the date field cannot be parsed", {
-  dir  <- withr::local_tempdir()
-  tree <- ape::read.tree(text = "((tA|notadate|regionA:1,tB|2020-01-01|regionB:1):1,tC|2021-01-01|regionC:2);")
-  tp   <- file.path(dir, "t.nwk"); ape::write.tree(tree, tp)
-  pp   <- file.path(dir, "p.tsv")
-  utils::write.table(make_intro_node_probs(make_intro_tree()), pp,
-                     sep = "\t", row.names = FALSE, quote = FALSE)
-
-  expect_error(explode_tree(tp, pp), "date")
+  tree <- ape::read.tree(
+    text = "((tA|notadate|regionA:1,tB|2020-01-01|regionB:1):1,tC|2021-01-01|regionC:2);"
+  )
+  expect_error(
+    explode_tree(tree, make_intro_node_probs(make_intro_tree())),
+    "date"
+  )
 })

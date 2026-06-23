@@ -23,6 +23,14 @@ continued-transmission definition (reintroductions counted separately) and
 returns a tidy introductions table plus split subtrees per multi-tip clade.
 
 
+## plot_explode_tree.R 
+Take output of explode_tree.R x$introductions and make plot using wnv-foco_phylo_intro_plots.Rmd as an example.
+Final output should be the p_intro2 plot. 
+group_by intro_clade_id and deme
+facet by deme
+add color of inferred_intro_date point to be the source inferred_intro_source
+
+
 ## DEFINE_LINEAGES.R
 - [x] create a simpler function just with the input being the absolute amino acid position and residue as required input. User can use the resolve positions function
 - [x] save existing function as define_lineages_dev.R in sandbox

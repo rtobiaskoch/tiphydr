@@ -150,7 +150,7 @@ plot_explode_tree <- function(
       name = "Persistence"
     ) +
     ggplot2::scale_fill_brewer(palette = palette_source, name = "Source deme") +
-    ggplot2::scale_size_continuous(range = c(2.5, 8), guide = "none") +
+    ggplot2::scale_size_continuous(range = c(2.5, 8), name = "Clade size") +
     ggplot2::scale_y_continuous(breaks = function(x) {
       seq(ceiling(x[1]), floor(x[2]))
     }) +

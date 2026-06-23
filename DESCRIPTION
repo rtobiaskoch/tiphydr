@@ -23,7 +23,8 @@ Imports:
     ggtree,
     ggplot2,
     RColorBrewer,
-    rlang
+    rlang,
+    ggtext
 Suggests:
     testthat (>= 3.0.0)
 Config/testthat/edition: 3

@@ -4,7 +4,7 @@
 \alias{detect_introductions}
 \title{Detect deme introductions from an annotated tree table}
 \usage{
-detect_introductions(tree_df, confidence = 0.5)
+detect_introductions(tree_df, confidence = 0.51)
 }
 \arguments{
 \item{tree_df}{A \code{tbl_tree} from \code{\link{build_tree_df}}.}

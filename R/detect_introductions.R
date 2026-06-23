@@ -31,12 +31,11 @@
 #'   \code{clade_size}, and \code{intro_node} (ape node id of the introduction,
 #'   used to extract subtrees).
 #' @export
-detect_introductions <- function(tree_df, confidence = 0.5) {
-
+detect_introductions <- function(tree_df, confidence = 0.51) {
   # Per-node lookups keyed by node id (character keys for safe subsetting).
   state <- stats::setNames(tree_df$inferred_state, tree_df$node)
-  conf  <- stats::setNames(tree_df$confidence_state, tree_df$node)
-  date  <- stats::setNames(tree_df$inferred_date, tree_df$node)
+  conf <- stats::setNames(tree_df$confidence_state, tree_df$node)
+  date <- stats::setNames(tree_df$inferred_date, tree_df$node)
 
   # Attach each node's parent attributes. Root's parent is itself -> no transition.
   # Drop the tbl_tree class first (plain tibble) so dplyr does not try to
@@ -45,7 +44,7 @@ detect_introductions <- function(tree_df, confidence = 0.5) {
     dplyr::mutate(
       # unname: subsetting a named lookup vector carries the key as a name
       parent_state = unname(state[as.character(.data$parent)]),
-      parent_conf  = unname(conf[as.character(.data$parent)])
+      parent_conf = unname(conf[as.character(.data$parent)])
     )
 
   # Edges where the deme changed = introductions.
@@ -53,19 +52,24 @@ detect_introductions <- function(tree_df, confidence = 0.5) {
 
   # ── Established introductions (internal nodes above confidence) ───────────────
   internal_transitions <- dplyr::filter(transitions, !.data$is_tip)
-  established <- dplyr::filter(internal_transitions,
-                              .data$confidence_state >= confidence)
+  established <- dplyr::filter(
+    internal_transitions,
+    .data$confidence_state >= confidence
+  )
 
   # Explain a (possibly empty) trees list: internal transitions exist but the
   # confidence filter removed all of them, so only singletons can be returned.
   if (nrow(internal_transitions) > 0L && nrow(established) == 0L) {
     warning(
       sprintf(
-        paste0("%d internal-node transition(s) found but none reach confidence ",
-               "%.2f (max available %.2f); no established (multi-tip) clades — ",
-               "only singleton introductions returned. Lower `confidence` to ",
-               "include them."),
-        nrow(internal_transitions), confidence,
+        paste0(
+          "%d internal-node transition(s) found but none reach confidence ",
+          "%.2f (max available %.2f); no established (multi-tip) clades — ",
+          "only singleton introductions returned. Lower `confidence` to ",
+          "include them."
+        ),
+        nrow(internal_transitions),
+        confidence,
         max(internal_transitions$confidence_state)
       ),
       call. = FALSE
@@ -83,7 +87,9 @@ detect_introductions <- function(tree_df, confidence = 0.5) {
     function(intro_node, dest, intro_date, source_state, source_prob) {
       # Descendant tips of the introduction node.
       tips <- tidytree::offspring(tree_df, intro_node, tiponly = TRUE)
-      if (nrow(tips) == 0L) return(NULL)
+      if (nrow(tips) == 0L) {
+        return(NULL)
+      }
 
       # Continued-transmission filter: keep a tip only if every ancestor at or
       # after the introduction date is the destination deme (never left).
@@ -95,16 +101,18 @@ detect_introductions <- function(tree_df, confidence = 0.5) {
       })
 
       tips <- tips[keep, , drop = FALSE]
-      if (nrow(tips) == 0L) return(NULL)
+      if (nrow(tips) == 0L) {
+        return(NULL)
+      }
 
       tibble::tibble(
-        tipname                            = tips$label,
-        deme                               = dest,
-        inferred_intro_date                = intro_date,
-        inferred_intro_source              = source_state,
-        inferred_intro_source_probability  = source_prob,
-        sample_date                        = tips$inferred_date,
-        intro_node                         = intro_node
+        tipname = tips$label,
+        deme = dest,
+        inferred_intro_date = intro_date,
+        inferred_intro_source = source_state,
+        inferred_intro_source_probability = source_prob,
+        sample_date = tips$inferred_date,
+        intro_node = intro_node
       )
     }
   )
@@ -113,13 +121,13 @@ detect_introductions <- function(tree_df, confidence = 0.5) {
   singletons <- transitions |>
     dplyr::filter(.data$is_tip) |>
     dplyr::transmute(
-      tipname                            = .data$label,
-      deme                               = .data$inferred_state,
-      inferred_intro_date                = .data$inferred_date,
-      inferred_intro_source              = .data$parent_state,
-      inferred_intro_source_probability  = .data$parent_conf,
-      sample_date                        = .data$inferred_date,
-      intro_node                         = .data$node
+      tipname = .data$label,
+      deme = .data$inferred_state,
+      inferred_intro_date = .data$inferred_date,
+      inferred_intro_source = .data$parent_state,
+      inferred_intro_source_probability = .data$parent_conf,
+      sample_date = .data$inferred_date,
+      intro_node = .data$node
     )
 
   intros <- dplyr::bind_rows(established_tips, singletons)
@@ -145,8 +153,14 @@ detect_introductions <- function(tree_df, confidence = 0.5) {
     ) |>
     dplyr::arrange(.data$intro_clade_id) |>
     dplyr::select(
-      "tipname", "deme", "intro_clade_id", "inferred_intro_date",
-      "last_sample_date", "inferred_intro_source",
-      "inferred_intro_source_probability", "clade_size", "intro_node"
+      "tipname",
+      "deme",
+      "intro_clade_id",
+      "inferred_intro_date",
+      "last_sample_date",
+      "inferred_intro_source",
+      "inferred_intro_source_probability",
+      "clade_size",
+      "intro_node"
     )
 }

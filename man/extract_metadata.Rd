@@ -4,7 +4,7 @@
 \alias{extract_metadata}
 \title{Extract metadata from FASTA sequence headers into a tibble}
 \usage{
-extract_metadata(biostring, names, delim = "|")
+extract_metadata(biostring, names = NULL, delim = "|")
 }
 \arguments{
 \item{biostring}{An \code{XStringSet} (e.g. \code{DNAStringSet}) whose
@@ -12,14 +12,18 @@ extract_metadata(biostring, names, delim = "|")
 
 \item{names}{Character vector of column names for the output tibble. Length
 controls how many fields are extracted; extra header fields are silently
-dropped. The first element is conventionally the sequence ID or strain name.}
+dropped. The first element is conventionally the sequence ID or strain name.
+Default \code{NULL} extracts all fields from the widest header and names
+them \code{V1}, \code{V2}, \ldots}
 
 \item{delim}{Single string used as the field delimiter. Default \code{"|"} for
 GISAID-style headers. Treated as a fixed string, not a regular expression.}
 }
 \value{
-A \code{tibble} with \code{length(names)} columns and one row per
-sequence. Columns are typed as \code{character}; missing fields are
+A \code{tibble} with a leading \code{taxa} column (the full original
+header string) followed by one column per extracted field (all fields when
+\code{names = NULL}, otherwise \code{length(names)} columns), and one row
+per sequence. All columns are \code{character}; missing fields are
 \code{NA_character_}. Note: empty fields produced by consecutive delimiters
 (e.g. \code{"WNV||CO"}) are also converted to \code{NA} without a warning,
 as they are indistinguishable from padding.
