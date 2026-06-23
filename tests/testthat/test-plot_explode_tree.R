@@ -23,3 +23,21 @@ test_that("plot_explode_tree produces one facet per destination deme", {
   n_demes <- dplyr::n_distinct(result$introductions$deme)
   expect_equal(length(built$layout$panel_params), n_demes)
 })
+
+test_that("plot_explode_tree errors when source demes exceed palette capacity", {
+  # Manufacture a minimal introductions tibble with 9 distinct source demes —
+  # more than the Set2 palette maximum (8).
+  introductions <- tibble::tibble(
+    intro_clade_id    = 1:9,
+    deme              = "regionA",
+    inferred_intro_date           = as.Date("2020-01-01"),
+    last_sample_date  = as.Date("2021-01-01"),
+    inferred_intro_source         = paste0("source", 1:9),
+    inferred_intro_source_probability = 1,
+    clade_size        = 1L
+  )
+  expect_error(
+    plot_explode_tree(introductions, palette_source = "Set2"),
+    regexp = "exceeds the maximum colours"
+  )
+})

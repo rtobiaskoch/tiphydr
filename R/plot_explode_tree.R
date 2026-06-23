@@ -59,6 +59,28 @@ plot_explode_tree <- function(introductions,
       )
     )
 
+  # Guard: RColorBrewer palettes have a fixed maximum. Fail loudly rather than
+  # silently recycling colours, which would make distinct demes visually identical.
+  n_sources <- length(unique(clade_tbl$inferred_intro_source))
+  max_source_colors <- RColorBrewer::brewer.pal.info[palette_source, "maxcolors"]
+  if (n_sources > max_source_colors) {
+    stop(
+      "Number of source demes (", n_sources, ") exceeds the maximum colours in ",
+      "palette '", palette_source, "' (", max_source_colors, "). ",
+      "Supply a palette with more colours via palette_source."
+    )
+  }
+
+  n_persistence <- length(unique(clade_tbl$persistence))
+  max_pers_colors <- RColorBrewer::brewer.pal.info[palette_persistence, "maxcolors"]
+  if (n_persistence > max_pers_colors) {
+    stop(
+      "Number of persistence levels (", n_persistence, ") exceeds the maximum colours in ",
+      "palette '", palette_persistence, "' (", max_pers_colors, "). ",
+      "Supply a palette with more colours via palette_persistence."
+    )
+  }
+
   # Long format: two rows per clade (one per date type).
   # Using bind_rows avoids a tidyr dependency.
   clade_long <- dplyr::bind_rows(
