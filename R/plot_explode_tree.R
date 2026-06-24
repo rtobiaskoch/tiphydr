@@ -151,7 +151,7 @@ plot_explode_tree <- function(
       color = "white"
     ) +
     ggplot2::scale_color_manual(
-      values = c("persistent" = "#D95F02", "transient" = "grey40"),
+      values = c("persistent" = "grey25", "transient" = "grey65"),
       name = "Persistence"
     ) +
     (if (!is.null(named_palette)) {
