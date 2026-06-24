@@ -20,7 +20,9 @@
 #'
 #' @param tree_df A \code{tbl_tree} from \code{\link{build_tree_df}}.
 #' @param confidence Minimum node probability for an established (internal-node)
-#'   introduction. Default 0.5. Singleton (tip) introductions are not filtered.
+#'   introduction. Default 0.5. Nodes at exactly 0.5 (equal posterior weight on
+#'   two states) are excluded — the filter is strictly greater than this value.
+#'   Singleton (tip) introductions are not filtered.
 #'   If internal transitions exist but none clear \code{confidence}, a warning
 #'   reports the maximum available probability so the threshold can be tuned.
 #'
@@ -31,7 +33,7 @@
 #'   \code{clade_size}, and \code{intro_node} (ape node id of the introduction,
 #'   used to extract subtrees).
 #' @export
-detect_introductions <- function(tree_df, confidence = 0.51) {
+detect_introductions <- function(tree_df, confidence = 0.5) {
   # Per-node lookups keyed by node id (character keys for safe subsetting).
   state <- stats::setNames(tree_df$inferred_state, tree_df$node)
   conf <- stats::setNames(tree_df$confidence_state, tree_df$node)

@@ -22,7 +22,8 @@
 plot_explode_tree <- function(
   introductions,
   persistence_days = 365,
-  palette_source = "Set2"
+  palette_source = "Set2",
+  named_palette = NULL
 ) {
   # --- Validate required columns -------------------------------------------
   required_cols <- c(
@@ -68,25 +69,27 @@ plot_explode_tree <- function(
       .by = "deme"
     )
 
-  # Guard: RColorBrewer palettes have a fixed maximum. Fail loudly rather than
-  # silently recycling colours, which would make distinct demes visually identical.
-  n_sources <- length(unique(clade_tbl$inferred_intro_source))
-  max_source_colors <- RColorBrewer::brewer.pal.info[
-    palette_source,
-    "maxcolors"
-  ]
-  if (n_sources > max_source_colors) {
-    stop(
-      "Number of source demes (",
-      n_sources,
-      ") exceeds the maximum colours in ",
-      "palette '",
+  # Guard: RColorBrewer palettes have a fixed maximum. Skip when named_palette
+  # is supplied (no maxcolors constraint for explicit named vectors).
+  if (is.null(named_palette)) {
+    n_sources <- length(unique(clade_tbl$inferred_intro_source))
+    max_source_colors <- RColorBrewer::brewer.pal.info[
       palette_source,
-      "' (",
-      max_source_colors,
-      "). ",
-      "Supply a palette with more colours via palette_source."
-    )
+      "maxcolors"
+    ]
+    if (n_sources > max_source_colors) {
+      stop(
+        "Number of source demes (",
+        n_sources,
+        ") exceeds the maximum colours in ",
+        "palette '",
+        palette_source,
+        "' (",
+        max_source_colors,
+        "). ",
+        "Supply a palette with more colours via palette_source or named_palette."
+      )
+    }
   }
 
   # Long format: two rows per clade (one per date type).
@@ -149,7 +152,10 @@ plot_explode_tree <- function(
       values = c("persistent" = "#D95F02", "transient" = "grey40"),
       name = "Persistence"
     ) +
-    ggplot2::scale_fill_brewer(palette = palette_source, name = "Source deme") +
+    (if (!is.null(named_palette))
+      ggplot2::scale_fill_manual(values = named_palette, name = "Source deme")
+    else
+      ggplot2::scale_fill_brewer(palette = palette_source, name = "Source deme")) +
     ggplot2::scale_size_continuous(range = c(2.5, 8), name = "Clade size") +
     ggplot2::scale_y_continuous(breaks = function(x) {
       seq(ceiling(x[1]), floor(x[2]))
