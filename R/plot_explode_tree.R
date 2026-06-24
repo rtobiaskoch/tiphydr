@@ -22,6 +22,7 @@
 plot_explode_tree <- function(
   introductions,
   persistence_days = 365,
+  min_clade = 1,
   palette_source = "Set2",
   named_palette = NULL
 ) {
@@ -63,6 +64,7 @@ plot_explode_tree <- function(
       )
     ) |>
     # Number clades 1..N within each deme, ordered chronologically by intro date
+    dplyr::filter(.data$clade_size >= min_clade) |>
     dplyr::arrange(.data$deme, .data$inferred_intro_date) |>
     dplyr::mutate(
       local_clade_num = dplyr::row_number(),
@@ -152,10 +154,11 @@ plot_explode_tree <- function(
       values = c("persistent" = "#D95F02", "transient" = "grey40"),
       name = "Persistence"
     ) +
-    (if (!is.null(named_palette))
+    (if (!is.null(named_palette)) {
       ggplot2::scale_fill_manual(values = named_palette, name = "Source deme")
-    else
-      ggplot2::scale_fill_brewer(palette = palette_source, name = "Source deme")) +
+    } else {
+      ggplot2::scale_fill_brewer(palette = palette_source, name = "Source deme")
+    }) +
     ggplot2::scale_size_continuous(range = c(2.5, 8), name = "Clade size") +
     ggplot2::scale_y_continuous(breaks = function(x) {
       seq(ceiling(x[1]), floor(x[2]))
