@@ -37,10 +37,14 @@
 #'       only.}
 #'   }
 #' @export
-explode_tree <- function(tree, node_probs, confidence = 0.5,
-                         delim = "|", date_field = 2L,
-                         date_format = "%Y-%m-%d") {
-
+explode_tree <- function(
+  tree,
+  node_probs,
+  confidence = 0.5,
+  delim = "|",
+  date_field = 2L,
+  date_format = "%Y-%m-%d"
+) {
   if (!inherits(tree, "phylo")) {
     stop("tree must be an ape::phylo object")
   }
@@ -51,21 +55,26 @@ explode_tree <- function(tree, node_probs, confidence = 0.5,
   # Parse the date field out of each tip label. Split wide enough to isolate the
   # date column (the remainder collects in the final column).
   fields <- stringr::str_split_fixed(
-    tree$tip.label, stringr::fixed(delim), n = date_field + 1L
+    tree$tip.label,
+    stringr::fixed(delim),
+    n = date_field + 1L
   )
   tip_dates <- tibble::tibble(
     tip_label = tree$tip.label,
     # format = ... makes a bad date NA (caught below) instead of erroring here
-    date      = as.Date(fields[, date_field], format = date_format)
+    date = as.Date(fields[, date_field], format = date_format)
   )
   if (anyNA(tip_dates$date)) {
-    stop("could not parse a valid date from field ", date_field,
-         " of these tip labels: ",
-         paste(tip_dates$tip_label[is.na(tip_dates$date)], collapse = ", "))
+    stop(
+      "could not parse a valid date from field ",
+      date_field,
+      " of these tip labels: ",
+      paste(tip_dates$tip_label[is.na(tip_dates$date)], collapse = ", ")
+    )
   }
 
   tree_df <- build_tree_df(tree, node_probs, tip_dates)
-  intros  <- detect_introductions(tree_df, confidence = confidence)
+  intros <- detect_introductions(tree_df, confidence = confidence)
 
   # Build one subtree per multi-tip clade: descend to the introduction node, then
   # keep only the tips that passed the continued-transmission filter.
@@ -86,7 +95,7 @@ explode_tree <- function(tree, node_probs, confidence = 0.5,
   }
 
   list(
-    introductions = dplyr::select(intros, -"intro_node"),
-    trees         = trees
+    introductions = intros,
+    trees = trees
   )
 }
