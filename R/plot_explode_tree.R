@@ -11,8 +11,13 @@
 #'   Required columns: \code{intro_clade_id}, \code{deme},
 #'   \code{inferred_intro_date}, \code{last_sample_date},
 #'   \code{inferred_intro_source}, \code{clade_size}.
-#' @param persistence_days Numeric scalar. Days a clade must span (intro date to
-#'   last sample) to be labelled \code{"persistent"}. Default 365 (one year).
+#' @param persistence_days Numeric scalar. Days below which a clade is labelled
+#'   \code{"transient"}. Default 365 (one year). When \code{persistent_days} is
+#'   also supplied, clades between the two thresholds are labelled
+#'   \code{"semi-persistent"}.
+#' @param persistent_days Numeric scalar or \code{NULL}. Days above which a clade
+#'   is labelled \code{"persistent"}. If \code{NULL} (default), the old two-class
+#'   behaviour is used (\code{"persistent"} / \code{"transient"} only).
 #' @param palette_source RColorBrewer palette for the source-deme fill scale
 #'   (introduction-date point). Default \code{"Set2"}.
 #'
@@ -22,6 +27,7 @@
 plot_explode_tree <- function(
   introductions,
   persistence_days = 365,
+  persistent_days  = NULL,
   min_clade = 1,
   palette_source = "Set2",
   named_palette = NULL
@@ -45,7 +51,7 @@ plot_explode_tree <- function(
   }
 
   # Introductions tibble has one row per tip; collapse to one row per clade.
-  # persistence: did the clade persist for longer than persistence_days?
+  # Three-class when persistent_days is supplied; two-class otherwise (backward compat).
   clade_tbl <- introductions |>
     dplyr::distinct(
       .data$intro_clade_id,
@@ -56,12 +62,16 @@ plot_explode_tree <- function(
       .data$clade_size
     ) |>
     dplyr::mutate(
-      persistence = dplyr::if_else(
-        as.numeric(.data$last_sample_date - .data$inferred_intro_date) >
-          persistence_days,
-        "persistent",
-        "transient"
-      )
+      .persist_num = as.numeric(.data$last_sample_date - .data$inferred_intro_date),
+      persistence = if (is.null(persistent_days)) {
+        dplyr::if_else(.data$.persist_num > persistence_days, "persistent", "transient")
+      } else {
+        dplyr::case_when(
+          .data$.persist_num <  persistence_days ~ "transient",
+          .data$.persist_num >  persistent_days  ~ "persistent",
+          .default                               = "semi-persistent"
+        )
+      }
     ) |>
     # Number clades 1..N within each deme, ordered chronologically by intro date
     dplyr::filter(.data$clade_size >= min_clade) |>
@@ -151,7 +161,11 @@ plot_explode_tree <- function(
       color = "white"
     ) +
     ggplot2::scale_color_manual(
-      values = c("persistent" = "grey25", "transient" = "grey65"),
+      values = c(
+        "persistent"      = "grey25",
+        "semi-persistent" = "grey45",
+        "transient"       = "grey65"
+      ),
       name = "Persistence"
     ) +
     (if (!is.null(named_palette)) {
