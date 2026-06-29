@@ -63,5 +63,6 @@ test_that("detect_introductions returns expected columns", {
   expect_named(res, c("tipname", "deme", "intro_clade_id", "inferred_intro_date",
                       "last_sample_date", "inferred_intro_source",
                       "inferred_intro_source_probability",
+                      "intro_confidence_state",
                       "clade_size", "intro_node"))
 })

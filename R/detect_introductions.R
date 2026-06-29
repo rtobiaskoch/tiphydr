@@ -30,10 +30,12 @@
 #'   (destination), \code{intro_clade_id}, \code{inferred_intro_date},
 #'   \code{last_sample_date} (most recent tip date in the clade),
 #'   \code{inferred_intro_source} (parent deme), \code{inferred_intro_source_probability},
+#'   \code{intro_confidence_state} (posterior probability that the introduction
+#'   node is in \code{deme}; for singletons, the tip's own state confidence),
 #'   \code{clade_size}, and \code{intro_node} (ape node id of the introduction,
 #'   used to extract subtrees).
 #' @export
-detect_introductions <- function(tree_df, confidence = 0.5) {
+detect_introductions <- function(tree_df, confidence = 0.51) {
   # Per-node lookups keyed by node id (character keys for safe subsetting).
   state <- stats::setNames(tree_df$inferred_state, tree_df$node)
   conf <- stats::setNames(tree_df$confidence_state, tree_df$node)
@@ -84,9 +86,17 @@ detect_introductions <- function(tree_df, confidence = 0.5) {
       established$inferred_state,
       established$inferred_date,
       established$parent_state,
-      established$parent_conf
+      established$parent_conf,
+      established$confidence_state
     ),
-    function(intro_node, dest, intro_date, source_state, source_prob) {
+    function(
+      intro_node,
+      dest,
+      intro_date,
+      source_state,
+      source_prob,
+      intro_conf
+    ) {
       # Descendant tips of the introduction node.
       tips <- tidytree::offspring(tree_df, intro_node, tiponly = TRUE)
       if (nrow(tips) == 0L) {
@@ -113,6 +123,7 @@ detect_introductions <- function(tree_df, confidence = 0.5) {
         inferred_intro_date = intro_date,
         inferred_intro_source = source_state,
         inferred_intro_source_probability = source_prob,
+        intro_confidence_state = intro_conf,
         sample_date = tips$inferred_date,
         intro_node = intro_node
       )
@@ -128,6 +139,7 @@ detect_introductions <- function(tree_df, confidence = 0.5) {
       inferred_intro_date = .data$inferred_date,
       inferred_intro_source = .data$parent_state,
       inferred_intro_source_probability = .data$parent_conf,
+      intro_confidence_state = .data$confidence_state,
       sample_date = .data$inferred_date,
       intro_node = .data$node
     )
@@ -162,6 +174,7 @@ detect_introductions <- function(tree_df, confidence = 0.5) {
       "last_sample_date",
       "inferred_intro_source",
       "inferred_intro_source_probability",
+      "intro_confidence_state",
       "clade_size",
       "intro_node"
     )

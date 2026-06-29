@@ -31,8 +31,8 @@ stopifnot(nchar(.ref_seq) == 18L)
 #' @return Character scalar of the same length as `base`.
 .mutate_seq <- function(base = .ref_seq, pos4 = "A", pos10 = "A", pos3 = "G") {
   s <- base
-  substr(s, 3,  3)  <- pos3
-  substr(s, 4,  4)  <- pos4
+  substr(s, 3, 3) <- pos3
+  substr(s, 4, 4) <- pos4
   substr(s, 10, 10) <- pos10
   s
 }
@@ -79,11 +79,11 @@ make_test_biostring <- function() {
   substr(ns4b_extra, 14, 14) <- "N"
 
   Biostrings::DNAStringSet(c(
-    `WNV|2021|CO|NY10_001`       = ny10,
-    `WNV|2020|CO|NS2A_002`       = ns2a,
-    `WNV|2022|WY|NS4B_003`       = ns4b,
-    `WNV|2019|CO|OTHER_004`      = other,
-    `WNV|2019|CO|NST_NS2A_004`   = nstart_ns2a,
+    `WNV|2021|CO|NY10_001` = ny10,
+    `WNV|2020|CO|NS2A_002` = ns2a,
+    `WNV|2022|WY|NS4B_003` = ns4b,
+    `WNV|2019|CO|OTHER_004` = other,
+    `WNV|2019|CO|NST_NS2A_004` = nstart_ns2a,
     `WNV|2021|NM|EXTRA_NY10_005` = ns4b_extra
   ))
 }
@@ -105,9 +105,9 @@ make_test_ref <- function() {
 make_test_metadata <- function() {
   tibble::tibble(
     strain_id = c("NY10_001", "NS2A_002", "NS4B_003", "OTHER_004"),
-    date      = as.Date(c("2021-07-15", "2020-08-01", "2022-06-20", "2019-05-10")),
-    location  = c("Colorado", "Colorado", "Wyoming", "Colorado"),
-    host      = c("Culex tarsalis", "Culex pipiens", "Culex tarsalis", "Bird")
+    date = as.Date(c("2021-07-15", "2020-08-01", "2022-06-20", "2019-05-10")),
+    location = c("Colorado", "Colorado", "Wyoming", "Colorado"),
+    host = c("Culex tarsalis", "Culex pipiens", "Culex tarsalis", "Bird")
   )
 }
 
@@ -125,8 +125,8 @@ make_test_metadata <- function() {
 make_test_muts <- function() {
   tibble::tibble(
     lineage = c("NY10", "NY10", "NS4A", "NS4B"),
-    pos     = c(4L,     10L,    4L,     10L),
-    residue = c("G",    "C",    "G",    "C")
+    pos = c(4L, 10L, 4L, 10L),
+    residue = c("G", "C", "G", "C")
   )
 }
 
@@ -148,8 +148,8 @@ make_test_muts <- function() {
 make_test_aa_muts <- function() {
   tibble::tibble(
     lineage = c("NY10", "NY10", "NS4A", "NS4B"),
-    pos     = c(2L,     4L,     2L,     4L),
-    residue = c("E",    "Q",    "E",    "Q")
+    pos = c(2L, 4L, 2L, 4L),
+    residue = c("E", "Q", "E", "Q")
   )
 }
 
@@ -174,10 +174,10 @@ make_test_aa_muts <- function() {
 #' @return tibble::tibble with columns: lineage, gene, pos, residue
 make_test_gene_muts <- function() {
   tibble::tibble(
-    lineage = c("NY10",   "NY10",   "NS4A",   "NS4B"),
-    gene    = c("gene_A", "gene_B", "gene_A", "gene_B"),
-    pos     = c(2L,       1L,       2L,       1L),
-    residue = c("E",      "Q",      "E",      "Q")
+    lineage = c("NY10", "NY10", "NS4A", "NS4B"),
+    gene = c("gene_A", "gene_B", "gene_A", "gene_B"),
+    pos = c(2L, 1L, 2L, 1L),
+    residue = c("E", "Q", "E", "Q")
   )
 }
 
@@ -189,8 +189,8 @@ make_test_gene_muts <- function() {
 #'
 #' @return Biostrings::DNAStringSet, single sequence named "WNV|2023|CO|AMB_001"
 make_test_ambiguous_seq <- function() {
-  seq <- .mutate_seq()           # wildtype: all A at diagnostic positions
-  substr(seq, 4, 4) <- "N"      # N at diagnostic pos4
+  seq <- .mutate_seq() # wildtype: all A at diagnostic positions
+  substr(seq, 4, 4) <- "N" # N at diagnostic pos4
   Biostrings::DNAStringSet(c(`WNV|2023|CO|AMB_001` = seq))
 }
 
@@ -243,27 +243,35 @@ make_intro_tree <- function() {
 #' @param tree The phylo from make_intro_tree().
 #' @return data.frame with a node column + one column per deme.
 make_intro_node_probs <- function(tree = make_intro_tree()) {
-  ntip  <- ape::Ntip(tree)
+  ntip <- ape::Ntip(tree)
   demes <- c("regionA", "regionB", "regionC")
 
   # Resolve internal node ids by MRCA (independent of ape numbering).
-  lbl       <- function(p) grep(p, tree$tip.label, value = TRUE)
-  root      <- ntip + 1L
-  node_B    <- ape::getMRCA(tree, c(lbl("^tB1"), lbl("^tB2")))
-  node_AC   <- ape::getMRCA(tree, c(lbl("^tA1"), lbl("^tC1")))
+  lbl <- function(p) grep(p, tree$tip.label, value = TRUE)
+  root <- ntip + 1L
+  node_B <- ape::getMRCA(tree, c(lbl("^tB1"), lbl("^tB2")))
+  node_AC <- ape::getMRCA(tree, c(lbl("^tA1"), lbl("^tC1")))
 
   # State per node id: tips from their label deme, internals as documented.
-  tip_deme  <- vapply(strsplit(tree$tip.label, "|", fixed = TRUE),
-                      `[`, character(1), 3L)
+  tip_deme <- vapply(
+    strsplit(tree$tip.label, "|", fixed = TRUE),
+    `[`,
+    character(1),
+    3L
+  )
   state <- character(ntip + tree$Nnode)
   state[seq_len(ntip)] <- tip_deme
-  state[root]    <- "regionA"
-  state[node_B]  <- "regionB"
+  state[root] <- "regionA"
+  state[node_B] <- "regionB"
   state[node_AC] <- "regionA"
 
   # One-hot probability matrix.
-  mat <- matrix(0, nrow = length(state), ncol = length(demes),
-                dimnames = list(NULL, demes))
+  mat <- matrix(
+    0,
+    nrow = length(state),
+    ncol = length(demes),
+    dimnames = list(NULL, demes)
+  )
   mat[cbind(seq_along(state), match(state, demes))] <- 1
 
   data.frame(node = seq_along(state), mat, check.names = FALSE)
@@ -276,8 +284,12 @@ make_intro_node_probs <- function(tree = make_intro_tree()) {
 make_intro_tip_dates <- function(tree = make_intro_tree()) {
   tibble::tibble(
     tip_label = tree$tip.label,
-    date = as.Date(vapply(strsplit(tree$tip.label, "|", fixed = TRUE),
-                          `[`, character(1), 2L))
+    date = as.Date(vapply(
+      strsplit(tree$tip.label, "|", fixed = TRUE),
+      `[`,
+      character(1),
+      2L
+    ))
   )
 }
 
@@ -297,25 +309,50 @@ write_test_fixtures <- function(out_dir = "tests/testthat/testdata") {
   dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
 
   # FASTA files — written via Biostrings
-  Biostrings::writeXStringSet(make_test_ref(),       file.path(out_dir, "wnv_ref.fasta"))
-  Biostrings::writeXStringSet(make_test_biostring(), file.path(out_dir, "wnv_seqs.fasta"))
+  Biostrings::writeXStringSet(
+    make_test_ref(),
+    file.path(out_dir, "wnv_ref.fasta")
+  )
+  Biostrings::writeXStringSet(
+    make_test_biostring(),
+    file.path(out_dir, "wnv_seqs.fasta")
+  )
 
   # CSV files — metadata and mutation definitions
-  utils::write.csv(make_test_metadata(), file.path(out_dir, "wnv_metadata.csv"), row.names = FALSE)
-  utils::write.csv(make_test_muts(),     file.path(out_dir, "wnv_muts.csv"),     row.names = FALSE)
+  utils::write.csv(
+    make_test_metadata(),
+    file.path(out_dir, "wnv_metadata.csv"),
+    row.names = FALSE
+  )
+  utils::write.csv(
+    make_test_muts(),
+    file.path(out_dir, "wnv_muts.csv"),
+    row.names = FALSE
+  )
 
   # Minimal GFF3 for gene-relative mutation tests.
   # Two genes covering the 18nt reference; stop codon (pos 16-18) is outside both.
   #   gene_A: pos  1-9  (Met + 2 Lys codons — AA2 is the diagnostic Glu/Lys position)
   #   gene_B: pos 10-15 (2 Lys codons     — AA1 is the diagnostic Gln/Lys position)
   make_gff_row <- function(start, end, product) {
-    paste(c("test_seq", ".", "mature_protein_region_of_CDS",
-            start, end, ".", "+", ".", paste0("product=", product)),
-          collapse = "\t")
+    paste(
+      c(
+        "test_seq",
+        ".",
+        "mature_protein_region_of_CDS",
+        start,
+        end,
+        ".",
+        "+",
+        ".",
+        paste0("product=", product)
+      ),
+      collapse = "\t"
+    )
   }
   gff_lines <- c(
     "##gff-version 3",
-    make_gff_row(1,  9,  "gene_A"),
+    make_gff_row(1, 9, "gene_A"),
     make_gff_row(10, 15, "gene_B")
   )
   writeLines(gff_lines, file.path(out_dir, "test_genome.gff"))
