@@ -1,57 +1,64 @@
-#' Plot a phylogenetic tree coloured by a discrete trait
+#' Plot a phylogenetic tree coloured by a trait (discrete or continuous)
 #'
-#' Visualises the output of \code{\link{build_tree_df}} with branches coloured
-#' by the parent (ancestral) node's trait — the nextstrain branch-colouring
-#' convention — and tips and internal nodes coloured by their own trait value.
-#' Returns a \pkg{ggplot2} object that can be extended with additional layers.
+#' Colours a tidy tree table by any trait column, following the nextstrain
+#' branch-colouring convention: each branch takes its parent (ancestral) node's
+#' trait, while tips and internal nodes are coloured by their own value. The
+#' trait type is detected automatically — a numeric column gets a continuous
+#' \pkg{viridis} gradient, anything else (character/factor) gets a discrete
+#' RColorBrewer palette. Returns a \pkg{ggplot2} object that can be extended
+#' with additional layers.
 #'
-#' @param tree_df A \code{tbl_tree} returned by \code{\link{build_tree_df}}.
-#' @param trait Character scalar — name of a discrete (character or factor)
-#'   column in \code{tree_df} to colour by.
-#' @param palette RColorBrewer palette name. Default \code{"Dark2"}.
+#' If a per-node confidence column is present it is double-encoded as point size
+#' and alpha (larger, more opaque = higher confidence). When absent, plain
+#' points are drawn — so the function works on any \code{tbl_tree}, not just the
+#' output of \code{\link{build_tree_df}}.
+#'
+#' Integer-coded categories (e.g. demes stored as 1/2/3) will render as a
+#' gradient; pass them as a factor to get discrete colours.
+#'
+#' @param tree_df A \code{tbl_tree} with \code{node}, \code{parent}, and the
+#'   \code{trait} column (e.g. from \code{\link{build_tree_df}}).
+#' @param trait Character scalar — name of the column to colour by.
+#' @param confidence Character scalar — name of an optional numeric confidence
+#'   column (default \code{"confidence_state"}). Silently ignored if absent.
+#' @param palette RColorBrewer palette name for discrete traits. Default
+#'   \code{"Dark2"}. Ignored for continuous traits.
 #'
 #' @return A \code{ggplot} object. Additional \pkg{ggplot2} layers can be added
 #'   with \code{+}.
 #' @export
-plot_tree_trait <- function(tree_df, trait, palette = "Dark2") {
-  # --- Validate: was tree_df produced by build_tree_df()? --------------------
-  # Checked against sentinel columns that build_tree_df() always produces.
-  sentinel_cols <- c("node", "parent", "label", "branch.length", "is_tip", "confidence_state")
-  missing_cols <- setdiff(sentinel_cols, names(tree_df))
+plot_tree_trait <- function(tree_df, trait,
+                            confidence = "confidence_state",
+                            palette    = "Dark2") {
+  # --- Validate: only require what is actually used --------------------------
+  required_cols <- c("node", "parent")
+  missing_cols  <- setdiff(required_cols, names(tree_df))
   if (length(missing_cols) > 0) {
     stop(
-      "tree_df does not look like output from build_tree_df(). ",
-      "Missing columns: ",
-      paste(missing_cols, collapse = ", "),
-      ".\n",
-      "To prepare your tree, run:\n",
-      "  build_tree_df(tree, node_probs, tip_dates)"
+      "tree_df must be a tidy tree table with columns: ",
+      paste(required_cols, collapse = ", "),
+      ". Missing: ", paste(missing_cols, collapse = ", "),
+      ".\nBuild one with build_tree_df(tree, node_probs, tip_dates)."
     )
   }
-
-  # --- Validate: trait column exists and is discrete -------------------------
   if (!trait %in% names(tree_df)) {
     stop(
-      "Column '",
-      trait,
-      "' not found in tree_df. ",
-      "Available columns: ",
+      "Column '", trait, "' not found in tree_df. Available columns: ",
       paste(names(tree_df), collapse = ", ")
     )
   }
-  if (is.numeric(tree_df[[trait]])) {
-    stop(
-      "Column '",
-      trait,
-      "' is numeric. plot_tree_trait supports only discrete ",
-      "(character or factor) traits. Convert to factor first if needed."
-    )
-  }
+
+  # --- Detect trait type: numeric => continuous, else discrete --------------
+  is_continuous <- is.numeric(tree_df[[trait]])
+
+  # --- Detect optional confidence encoding ----------------------------------
+  # Present + numeric => double-encode as size/alpha; otherwise plain points.
+  has_confidence <- confidence %in% names(tree_df) &&
+    is.numeric(tree_df[[confidence]])
 
   # --- Compute parent-trait for ancestral-state branch colouring ------------
-  # Each branch segment is coloured by its parent node's trait (nextstrain
-  # convention: colour flows from the ancestor, revealing where a lineage came from).
-  # The join uses ape node numbering: tree_df$parent holds the parent node id.
+  # Each branch is coloured by its parent node's trait (nextstrain convention:
+  # colour flows from the ancestor). Join on ape node numbering via `parent`.
   parent_states <- dplyr::select(
     tree_df,
     node,
@@ -63,63 +70,64 @@ plot_tree_trait <- function(tree_df, trait, palette = "Dark2") {
     by = c("parent" = "node")
   )
 
-  # --- Bin confidence_state into 4 quartile levels ---------------------------
-  # Used to double-encode confidence via point size and alpha — larger and more
-  # opaque = higher probability ancestral state assignment.
-  conf_breaks <- c(0, 0.25, 0.5, 0.75, 1.0)
-  conf_labels <- c("0-25%", "25-50%", "50-75%", "75-100%")
-  node_data <- dplyr::mutate(
-    node_data,
-    conf_level = cut(
-      confidence_state,
-      breaks        = conf_breaks,
-      labels        = conf_labels,
-      include.lowest = TRUE
+  # --- Bin confidence into 4 quartile levels (only if used) -----------------
+  if (has_confidence) {
+    node_data <- dplyr::mutate(
+      node_data,
+      conf_level = cut(
+        .data[[confidence]],
+        breaks         = c(0, 0.25, 0.5, 0.75, 1.0),
+        labels         = c("0-25%", "25-50%", "50-75%", "75-100%"),
+        include.lowest = TRUE
+      )
     )
-  )
+  }
 
-  # --- Build discrete colour palette -----------------------------------------
-  # brewer.pal minimum is 3; slice down to the actual number of trait levels.
-  # na.omit: root node has NA for parent_trait — not a trait level.
-  trait_levels <- unique(stats::na.omit(node_data[[trait]]))
-  n_colors <- max(3L, length(trait_levels))
-  colors <- RColorBrewer::brewer.pal(n_colors, palette)[seq_len(length(
-    trait_levels
-  ))]
-  names(colors) <- trait_levels
+  # --- Point aesthetics: colour by own trait, size/alpha by confidence ------
+  point_aes <- if (has_confidence) {
+    ggplot2::aes(color = .data[[trait]], size = .data$conf_level,
+                 alpha = .data$conf_level)
+  } else {
+    ggplot2::aes(color = .data[[trait]])
+  }
 
-  # --- Convert tbl_tree to phylo for ggtree ----------------------------------
-  # as.phylo strips annotation columns; node_data is reattached via %<+% below.
+  # --- Convert to phylo for ggtree (annotations reattached via %<+%) ---------
   phylo <- tidytree::as.phylo(tree_df)
 
-  # --- Build plot ------------------------------------------------------------
-  # Branches:       parent node's trait (ancestral-state convention)
-  # Tip points:     tip's own trait value
-  # Internal nodes: node's own trait value
-  # Root branch parent_trait = NA — dropped silently by na.translate = FALSE
-  p_base <- ggtree::ggtree(phylo)
-  ggtree::`%<+%`(p_base, node_data) +
-    ggplot2::aes(color = parent_trait) +
-    ggtree::geom_tippoint(
-      ggplot2::aes(color = .data[[trait]], size = conf_level, alpha = conf_level)
-    ) +
-    ggtree::geom_nodepoint(
-      ggplot2::aes(color = .data[[trait]], size = conf_level, alpha = conf_level)
-    ) +
-    ggplot2::scale_color_manual(
-      values       = colors,
-      name         = trait,
-      na.translate = FALSE
-    ) +
-    ggplot2::scale_size_manual(
-      values = c("0-25%" = 1, "25-50%" = 2, "50-75%" = 3, "75-100%" = 4),
-      name   = "Confidence",
-      na.translate = FALSE
-    ) +
-    ggplot2::scale_alpha_manual(
-      values = c("0-25%" = 0.25, "25-50%" = 0.5, "50-75%" = 0.75, "75-100%" = 1.0),
-      name   = "Confidence",
-      na.translate = FALSE
-    ) +
-    ggplot2::theme_classic()
+  p <- ggtree::ggtree(phylo)
+  p <- ggtree::`%<+%`(p, node_data) +
+    ggplot2::aes(color = .data$parent_trait) +
+    ggtree::geom_tippoint(point_aes) +
+    ggtree::geom_nodepoint(point_aes)
+
+  # --- Colour scale: viridis for continuous, brewer for discrete ------------
+  # Branches (parent_trait) and points (trait) share one colour scale.
+  if (is_continuous) {
+    p <- p + ggplot2::scale_color_viridis_c(name = trait, na.value = "grey80")
+  } else {
+    # brewer.pal minimum is 3; slice to the actual number of levels.
+    # na.omit: root node has NA parent_trait — not a real level.
+    trait_levels <- unique(stats::na.omit(node_data[[trait]]))
+    n_colors <- max(3L, length(trait_levels))
+    colors <- RColorBrewer::brewer.pal(n_colors, palette)[seq_along(trait_levels)]
+    names(colors) <- trait_levels
+    p <- p + ggplot2::scale_color_manual(
+      values = colors, name = trait, na.translate = FALSE
+    )
+  }
+
+  # --- Confidence size/alpha scales (only if used) --------------------------
+  if (has_confidence) {
+    p <- p +
+      ggplot2::scale_size_manual(
+        values = c("0-25%" = 1, "25-50%" = 2, "50-75%" = 3, "75-100%" = 4),
+        name = "Confidence", na.translate = FALSE
+      ) +
+      ggplot2::scale_alpha_manual(
+        values = c("0-25%" = 0.25, "25-50%" = 0.5, "50-75%" = 0.75, "75-100%" = 1.0),
+        name = "Confidence", na.translate = FALSE
+      )
+  }
+
+  p + ggplot2::theme_classic()
 }
