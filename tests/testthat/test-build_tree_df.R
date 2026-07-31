@@ -1,6 +1,6 @@
 test_that("build_tree_df annotates every node with state, confidence and date", {
   tree <- make_intro_tree()
-  res  <- build_tree_df(tree, make_intro_node_probs(tree), make_intro_tip_dates(tree))
+  res  <- build_tree_df(tree, make_intro_node_probs(tree), make_intro_annotated_tree_path(tree))
 
   n_nodes <- ape::Ntip(tree) + tree$Nnode
   expect_equal(nrow(res), n_nodes)
@@ -12,7 +12,7 @@ test_that("build_tree_df annotates every node with state, confidence and date", 
 
 test_that("build_tree_df keeps the tbl_tree class for tidytree traversal", {
   tree <- make_intro_tree()
-  res  <- build_tree_df(tree, make_intro_node_probs(tree), make_intro_tip_dates(tree))
+  res  <- build_tree_df(tree, make_intro_node_probs(tree), make_intro_annotated_tree_path(tree))
 
   expect_s3_class(res, "tbl_tree")
   # offspring must work on the annotated table

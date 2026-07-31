@@ -1,6 +1,6 @@
 make_intro_df <- function() {
   tree <- make_intro_tree()
-  build_tree_df(tree, make_intro_node_probs(tree), make_intro_tip_dates(tree))
+  build_tree_df(tree, make_intro_node_probs(tree), make_intro_annotated_tree_path(tree))
 }
 
 test_that("detect_introductions finds the established clade and the singleton", {

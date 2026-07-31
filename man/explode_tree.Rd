@@ -4,36 +4,23 @@
 \alias{explode_tree}
 \title{Split a dated tree into introduction clades}
 \usage{
-explode_tree(
-  tree,
-  node_probs,
-  confidence = 0.5,
-  delim = "|",
-  date_field = 2L,
-  date_format = "\%Y-\%m-\%d"
-)
+explode_tree(tree, node_probs, annotated_tree_path, confidence = 0.5)
 }
 \arguments{
-\item{tree}{An \code{ape::phylo} time tree whose tip labels embed a date
-field (e.g. \code{strain|date|deme|...}).}
+\item{tree}{An \code{ape::phylo} time tree.}
 
 \item{node_probs}{A data frame with a \code{node} column (matching ape node
 numbering) and one column per deme holding state probabilities (e.g. TreeTime
 DTA output loaded with \code{read.delim()}).}
+
+\item{annotated_tree_path}{Path to the dating tool's native annotated NEXUS
+output, passed through to \code{\link{node_dates_from_timetree}}.}
 
 \item{confidence}{Minimum node probability for an established introduction
 (default 0.5). Passed to \code{\link{detect_introductions}}. When internal
 transitions exist but none clear it, a warning reports the max available
 probability and only singleton introductions are returned (empty
 \code{trees}).}
-
-\item{delim}{Field delimiter in the tip labels (default \code{"|"}).}
-
-\item{date_field}{Index of the date field within each tip label (default 2).}
-
-\item{date_format}{Date format of the date field, passed to
-\code{\link[base]{as.Date}} (default \code{"\%Y-\%m-\%d"}). An unparseable
-date yields \code{NA} and a clear error rather than aborting mid-parse.}
 }
 \value{
 A list with two elements:
@@ -55,7 +42,9 @@ deme using the continued-transmission definition (see
 subtree for each multi-tip introduction clade.
 }
 \details{
-Tip calendar dates are parsed from the tree's tip labels (a delimited field);
-all node demes come from \code{node_probs_path}; internal-node dates are
-inferred from the time tree (see \code{\link{node_dates_from_timetree}}).
+All node demes come from \code{node_probs}; every node's calendar date is read
+directly off the dating tool's own native output (see
+\code{\link{node_dates_from_timetree}} for why \code{annotated_tree_path} must
+be that native, pre-round-trip file and must share \code{tree}'s exact
+topology).
 }

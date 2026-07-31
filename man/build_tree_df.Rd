@@ -4,7 +4,7 @@
 \alias{build_tree_df}
 \title{Assemble an annotated tree table for introduction detection}
 \usage{
-build_tree_df(tree, node_probs, tip_dates)
+build_tree_df(tree, node_probs, annotated_tree_path)
 }
 \arguments{
 \item{tree}{An \code{ape::phylo} time tree.}
@@ -12,7 +12,8 @@ build_tree_df(tree, node_probs, tip_dates)
 \item{node_probs}{Node x deme probability table (see
 \code{\link{most_likely_deme}}). Node ids must match ape node numbering.}
 
-\item{tip_dates}{Tibble with \code{tip_label} and \code{date} (\code{Date}).}
+\item{annotated_tree_path}{Path to the dating tool's native annotated NEXUS
+output, passed through to \code{\link{node_dates_from_timetree}}.}
 }
 \value{
 A \code{tbl_tree} (tibble) with columns \code{node}, \code{parent},
@@ -23,12 +24,14 @@ that \code{tidytree} traversal (\code{parent}, \code{ancestor},
 }
 \description{
 Converts a tree to a tidy \code{tbl_tree} (one row per node, with \code{parent}
-edges) and joins on the inferred deme, its probability, and an inferred calendar
-date for every node. This is the single object consumed by
+edges) and joins on the inferred deme, its probability, and a calendar date
+for every node. This is the single object consumed by
 \code{\link{detect_introductions}}.
 }
 \details{
 Node states (tips and internal nodes) come from \code{node_probs}; node dates
-come from the time tree via \code{\link{node_dates_from_timetree}}, with tip
-dates taken from \code{tip_dates}.
+are read directly off the dating tool's own native output via
+\code{\link{node_dates_from_timetree}} -- see that function's docstring for
+why \code{annotated_tree_path} must be the dating tool's native, pre-round-trip
+file and must share \code{tree}'s exact topology.
 }

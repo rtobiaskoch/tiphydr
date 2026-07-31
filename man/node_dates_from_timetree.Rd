@@ -2,37 +2,40 @@
 % Please edit documentation in R/node_dates_from_timetree.R
 \name{node_dates_from_timetree}
 \alias{node_dates_from_timetree}
-\title{Infer calendar dates for every node of a dated (time-scaled) tree}
+\title{Read calendar dates off every node, as computed by the dating tool itself}
 \usage{
-node_dates_from_timetree(tree, tip_dates, min_r2 = 0.95)
+node_dates_from_timetree(tree, annotated_tree_path)
 }
 \arguments{
-\item{tree}{An \code{ape::phylo} object with branch lengths (a time tree).}
+\item{tree}{An \code{ape::phylo} tree to attach dates to. Must have the same
+topology (tip order, edge structure) as the tree in
+\code{annotated_tree_path}.}
 
-\item{tip_dates}{A tibble with columns \code{tip_label} (matching
-\code{tree$tip.label}) and \code{date} (\code{Date}).}
-
-\item{min_r2}{Minimum acceptable \eqn{R^2} of the date~depth fit before a
-warning is emitted (default 0.95).}
+\item{annotated_tree_path}{Path to a NEXUS/BEAST-style tree file (LSD2's
+native output) with a \code{date} annotation on every node, readable by
+\code{treeio::read.beast()}.}
 }
 \value{
-A tibble with columns \code{node} (ape node id) and
-\code{inferred_date} (\code{Date}) for all tips and internal nodes.
+A tibble with columns \code{node} (ape node id) and \code{inferred_date}
+(\code{Date}) for every tip and internal node of \code{tree}.
 }
 \description{
-A time tree's branch lengths are proportional to elapsed time, but the unit
-(days vs decimal years) is often unclear and the root has no calendar anchor.
-This fits a molecular-clock linear model — tip calendar date as a function of
-root-to-node distance — and predicts a date for every internal node. Because
-both the slope (the time unit) and the intercept (the root date) are estimated
-from the tip dates, the result is correct regardless of the branch-length unit.
+Dating tools like LSD2 already compute a calendar date for every node
+(tip and internal) and embed it as a NHX-style \verb{[&date=...]} comment in
+their native NEXUS output. This reads those dates directly rather than
+re-deriving anything from branch lengths -- no regression, no model, no
+assumption about the tree's time unit. Because the dating tool enforces
+chronological node ordering internally (an ancestor is never dated later
+than its descendants), reading its own dates guarantees the same holds
+here, regardless of clock signal strength or rate heterogeneity.
 }
 \details{
-Tip dates are returned as their observed values, not the fitted ones.
-
-The fit's \eqn{R^2} is a clocklikeness / temporal-signal check. For a genuine
-time tree the tips fall almost exactly on the line (\eqn{R^2 \approx 1}); a low
-value flags that the input is probably not time-scaled (e.g. a phylogram in
-substitutions/site), violates a strict clock, or contains an erroneous tip
-date. A warning is raised below \code{min_r2} but dates are still returned.
+\code{annotated_tree_path} must point to the dating tool's native output --
+e.g. \verb{\{prefix\}.timetree.nex}, before any later step (such as a
+zero-branch adjustment) round-trips the tree through \code{ape::read.nexus()}
+/ \code{ape::write.nexus()}, which silently drops NHX comments. \code{tree} is
+whatever downstream working tree (e.g. after that adjustment, or with
+tips relabeled) the dates need to be matched onto; it must share the
+exact same topology and tip order as the annotated tree, since node
+identity is matched by ape node id.
 }

@@ -25,7 +25,8 @@ Imports:
     ggplot2,
     RColorBrewer,
     rlang,
-    ggtext
+    ggtext,
+    treeio
 Suggests:
     testthat (>= 3.0.0)
 Config/testthat/edition: 3

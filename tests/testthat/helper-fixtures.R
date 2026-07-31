@@ -293,6 +293,52 @@ make_intro_tip_dates <- function(tree = make_intro_tree()) {
   )
 }
 
+#' Path to a treeio-readable native-annotated NEXUS file matching make_intro_tree().
+#'
+#' Per-node dates follow the same "+1 year per depth unit" scheme documented in
+#' make_intro_tree()'s own comment (depth 4 -> 2019 ... depth 7 -> 2022), just
+#' extended to the 3 internal nodes: root = 2015-01-01, MRCA(tA1,tC1) =
+#' 2017-01-01, MRCA(tB1,tB2) = 2018-01-01. Tip dates match
+#' make_intro_tip_dates() exactly (hand-verified against tree depth) unless
+#' overridden. Written via treeio::write.beast() -- round-trip verified via
+#' treeio::read.beast() to produce exactly the NHX `[&date=...]` shape
+#' node_dates_from_timetree() parses (including a BEGIN TAXA; block, like
+#' TreeTime's real output, so this fixture exercises the same file shape
+#' `treeio::read.beast()` sees in production, not a simplified stand-in).
+#'
+#' @param tree The phylo from make_intro_tree().
+#' @param tip_dates_override Optional named character vector (tip label ->
+#'   raw annotation string) overriding specific tip dates -- used to build a
+#'   deliberately non-clocklike or non-ISO (bare-year / decimal-year) fixture.
+#' @return Path to a temp NEXUS file.
+make_intro_annotated_tree_path <- function(tree = make_intro_tree(), tip_dates_override = NULL) {
+  ntip <- ape::Ntip(tree)
+  lbl <- function(p) grep(p, tree$tip.label, value = TRUE)
+  root <- ntip + 1L
+  node_B <- ape::getMRCA(tree, c(lbl("^tB1"), lbl("^tB2")))
+  node_AC <- ape::getMRCA(tree, c(lbl("^tA1"), lbl("^tC1")))
+
+  tip_date_of <- function(label) {
+    if (!is.null(tip_dates_override) && label %in% names(tip_dates_override)) {
+      return(tip_dates_override[[label]])
+    }
+    strsplit(label, "|", fixed = TRUE)[[1]][2]
+  }
+  date_str <- character(ntip + tree$Nnode)
+  for (i in seq_len(ntip)) date_str[i] <- tip_date_of(tree$tip.label[i])
+  date_str[root] <- "2015-01-01"
+  date_str[node_AC] <- "2017-01-01"
+  date_str[node_B] <- "2018-01-01"
+
+  td <- treeio::treedata(
+    phylo = tree,
+    data = tibble::tibble(node = seq_along(date_str), date = date_str)
+  )
+  tf <- tempfile(fileext = ".nex")
+  treeio::write.beast(td, file = tf)
+  tf
+}
+
 # ---------------------------------------------------------------------------
 # File writer — single source of truth for on-disk fixtures
 # ---------------------------------------------------------------------------

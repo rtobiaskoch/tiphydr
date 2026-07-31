@@ -2,7 +2,7 @@
 
 test_that("plot_explode_tree returns a ggplot for valid input", {
   tree   <- make_intro_tree()
-  result <- explode_tree(tree, make_intro_node_probs(tree))
+  result <- explode_tree(tree, make_intro_node_probs(tree), make_intro_annotated_tree_path(tree))
   p      <- plot_explode_tree(result$introductions)
   expect_s3_class(p, "ggplot")
 })
@@ -17,7 +17,7 @@ test_that("plot_explode_tree errors on missing required columns", {
 
 test_that("plot_explode_tree produces one facet per destination deme", {
   tree   <- make_intro_tree()
-  result <- explode_tree(tree, make_intro_node_probs(tree))
+  result <- explode_tree(tree, make_intro_node_probs(tree), make_intro_annotated_tree_path(tree))
   p      <- plot_explode_tree(result$introductions)
   built  <- ggplot2::ggplot_build(p)
   n_demes <- dplyr::n_distinct(result$introductions$deme)

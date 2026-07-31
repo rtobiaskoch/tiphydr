@@ -1,11 +1,11 @@
-test_that("node_dates_from_timetree returns observed tip dates unchanged", {
-  tree      <- make_intro_tree()
+test_that("node_dates_from_timetree returns annotated tip dates unchanged", {
+  tree <- make_intro_tree()
+  path <- make_intro_annotated_tree_path(tree)
   tip_dates <- make_intro_tip_dates(tree)
 
-  res <- node_dates_from_timetree(tree, tip_dates)
+  res <- node_dates_from_timetree(tree, path)
 
   tip_res <- dplyr::filter(res, node <= ape::Ntip(tree))
-  # join back by tip order
   expect_equal(
     tip_res$inferred_date[order(tip_res$node)],
     tip_dates$date
@@ -13,10 +13,11 @@ test_that("node_dates_from_timetree returns observed tip dates unchanged", {
 })
 
 test_that("node_dates_from_timetree dates internal nodes before their tips", {
-  tree      <- make_intro_tree()
+  tree <- make_intro_tree()
+  path <- make_intro_annotated_tree_path(tree)
   tip_dates <- make_intro_tip_dates(tree)
 
-  res  <- node_dates_from_timetree(tree, tip_dates)
+  res  <- node_dates_from_timetree(tree, path)
   ntip <- ape::Ntip(tree)
   root_date <- res$inferred_date[res$node == ntip + 1L]
 
@@ -24,52 +25,80 @@ test_that("node_dates_from_timetree dates internal nodes before their tips", {
   expect_lte(root_date, min(tip_dates$date))
 })
 
-test_that("node_dates_from_timetree is unit-agnostic (scaling branch lengths is invariant)", {
-  tree      <- make_intro_tree()
-  tip_dates <- make_intro_tip_dates(tree)
-
-  tree_scaled <- tree
-  tree_scaled$edge.length <- tree$edge.length * 365  # e.g. years -> days
-
-  d1 <- node_dates_from_timetree(tree, tip_dates)
-  d2 <- node_dates_from_timetree(tree_scaled, tip_dates)
-
-  # Predicted dates should match within rounding regardless of branch unit.
-  expect_true(all(abs(as.numeric(d1$inferred_date - d2$inferred_date)) <= 1))
-})
-
-test_that("node_dates_from_timetree errors on a tree without branch lengths", {
-  tree <- ape::read.tree(text = "((a,b),c);")
-  td   <- tibble::tibble(tip_label = c("a", "b", "c"),
-                         date = as.Date(c("2020-01-01", "2021-01-01", "2022-01-01")))
-  expect_error(node_dates_from_timetree(tree, td), "branch length")
-})
-
-test_that("node_dates_from_timetree does not warn on a clocklike time tree", {
-  tree      <- make_intro_tree()
-  tip_dates <- make_intro_tip_dates(tree)
-  expect_no_warning(node_dates_from_timetree(tree, tip_dates))
-})
-
-test_that("node_dates_from_timetree warns when temporal signal is weak", {
+test_that("node_dates_from_timetree parses a bare-year annotation as that year's midpoint", {
   tree <- make_intro_tree()
-  # dates that zig-zag against depth order -> near-zero R2 (no clock signal)
-  d <- ape::node.depth.edgelength(tree)[seq_len(ape::Ntip(tree))]
-  scrambled <- tibble::tibble(
-    tip_label = tree$tip.label,
-    date = as.Date(c("2019-01-01", "2022-01-01",
-                     "2019-01-01", "2022-01-01"))[rank(d, ties.method = "first")]
+  # tB1's own annotation reduced to a bare year -- LSD2's shape when the
+  # fitted date has no finer resolution.
+  path <- make_intro_annotated_tree_path(
+    tree,
+    tip_dates_override = c("tB1|2020-01-01|regionB" = "2020")
   )
 
-  expect_warning(node_dates_from_timetree(tree, scrambled), "temporal signal")
+  res <- node_dates_from_timetree(tree, path)
+  tB1_date <- res$inferred_date[res$node == which(tree$tip.label == "tB1|2020-01-01|regionB")]
+
+  expect_equal(tB1_date, as.Date("2020-07-02"))
 })
 
-test_that("node_dates_from_timetree errors when all tips are equidistant from root", {
-  # ultrametric tree: every tip at depth 2 -> no spread in the predictor
-  tree <- ape::read.tree(text = "((a:1,b:1):1,(c:1,d:1):1);")
-  td   <- tibble::tibble(
-    tip_label = c("a", "b", "c", "d"),
-    date = as.Date(c("2019-01-01", "2020-01-01", "2021-01-01", "2022-01-01"))
+test_that("node_dates_from_timetree parses a TreeTime decimal-year annotation", {
+  tree <- make_intro_tree()
+  # tA1's own annotation as a TreeTime-style decimal year instead of ISO.
+  path <- make_intro_annotated_tree_path(
+    tree,
+    tip_dates_override = c("tA1|2019-01-01|regionA" = "2019.42")
   )
-  expect_error(node_dates_from_timetree(tree, td), "equidistant")
+
+  res <- node_dates_from_timetree(tree, path)
+  tA1_date <- res$inferred_date[res$node == which(tree$tip.label == "tA1|2019-01-01|regionA")]
+
+  # 2019 is not a leap year (365 days); day 0.42*365 = 153.3 -> round to 153.
+  expect_equal(tA1_date, as.Date("2019-01-01") + round(0.42 * 365))
+})
+
+test_that("node_dates_from_timetree returns a non-clocklike annotated date exactly, not a model prediction", {
+  # This is the actual regression test for the bug this design fixes: the old
+  # median-anchor/regression approach MODELED every node's date from a single
+  # uniform-clock assumption (depth * time_unit_days + one shared anchor),
+  # which can (and on real data, did) place an ancestor's modeled date later
+  # than one of its own descendant tips' true observed dates whenever a tip's
+  # real date didn't fit that uniform model. The new design never models
+  # anything -- it only reads whatever the dating tool itself already wrote.
+  # Prove that by annotating a tip with a date that is NOT what the
+  # depth-based clock model of make_intro_tree() would predict (tC1's "true"
+  # clock-implied date is 2022-01-01; give it a wildly different annotated
+  # date instead) and confirm the function returns exactly that value,
+  # unmodified -- there is no regression/anchor step left that could
+  # "correct" it.
+  tree <- make_intro_tree()
+  path <- make_intro_annotated_tree_path(
+    tree,
+    tip_dates_override = c("tC1|2022-01-01|regionC" = "1999-03-15")
+  )
+
+  res <- node_dates_from_timetree(tree, path)
+  tC1_date <- res$inferred_date[res$node == which(tree$tip.label == "tC1|2022-01-01|regionC")]
+
+  expect_equal(tC1_date, as.Date("1999-03-15"))
+})
+
+test_that("node_dates_from_timetree errors when tree and annotated_tree_path topology differ", {
+  tree <- make_intro_tree()
+  path <- make_intro_annotated_tree_path(tree)
+
+  pruned <- ape::drop.tip(tree, "tC1|2022-01-01|regionC")
+  expect_error(
+    node_dates_from_timetree(pruned, path),
+    "do not share the same topology"
+  )
+})
+
+test_that("node_dates_from_timetree errors when a node has no annotated date", {
+  tree <- make_intro_tree()
+  path <- make_intro_annotated_tree_path(tree)
+  # Corrupt the file so one node's [&date=...] comment is gone entirely.
+  lines <- readLines(path)
+  lines <- sub("\\[&date=2020-01-01\\]", "", lines, fixed = FALSE)
+  writeLines(lines, path)
+
+  expect_error(node_dates_from_timetree(tree, path), "no annotated date found")
 })
