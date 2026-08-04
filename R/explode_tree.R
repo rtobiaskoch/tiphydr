@@ -85,7 +85,7 @@ explode_tree <- function(
     tree_df <- build_tree_df(tree, node_probs, annotated_tree_path)
     intros <- detect_introductions(tree_df, confidence = confidence)
   } else {
-    stop("simmap source not yet implemented") # replaced in Task 4-6
+    intros <- .introductions_from_simmap(clade_dwell, tip_membership, confidence)
   }
 
   # Build one subtree per multi-tip clade: descend to the introduction node, then
@@ -110,4 +110,96 @@ explode_tree <- function(
     introductions = intros,
     trees = trees
   )
+}
+
+#' Build a per-tip introductions tibble from simmap-aggregated clade tables
+#'
+#' Two-step confidence filter, mirroring detect_introductions()'s
+#' `confidence_state >= confidence` gate but split across the two axes the
+#' simmap data actually has: clade-level (posterior_support -- is this
+#' introduction event real at all) and tip-level (membership_prob -- is this
+#' specific tip's assignment to it reliable). See
+#' docs/superpowers/specs/2026-08-04-explode-tree-simmap-source-design.md for
+#' the full rationale.
+#'
+#' @param clade_dwell Tibble, one row per clade: intro_node, deme,
+#'   posterior_support, inferred_intro_source,
+#'   inferred_intro_source_probability, clade_size, inferred_intro_date,
+#'   last_sample_date (the shape of dta_compute.R's _dta_clade_dwell.tsv).
+#' @param tip_membership Tibble, one row per (tipname, intro_node): tipname,
+#'   intro_node, deme, membership_prob (the shape of
+#'   _dta_tip_membership.tsv) -- the FULL table, not pre-filtered to
+#'   is_modal == TRUE rows, since the modal pick here is recomputed after
+#'   establishment filtering, not read off the file's own is_modal column.
+#' @param confidence Minimum value, shared by both filter steps: clade-level
+#'   posterior_support and (post-establishment) tip-level membership_prob.
+#' @return A tibble with the same columns as detect_introductions()'s output:
+#'   tipname, deme, intro_clade_id, inferred_intro_date, last_sample_date,
+#'   inferred_intro_source, inferred_intro_source_probability,
+#'   intro_confidence_state, clade_size, intro_node.
+.introductions_from_simmap <- function(clade_dwell, tip_membership, confidence) {
+  established <- dplyr::filter(clade_dwell, .data$posterior_support >= confidence)
+
+  if (nrow(clade_dwell) > 0L && nrow(established) == 0L) {
+    warning(
+      sprintf(
+        paste0(
+          "%d candidate clade(s) found in clade_dwell but none reach ",
+          "confidence %.2f (max posterior_support available %.2f); ",
+          "explode_tree() will return zero introductions. Lower ",
+          "`confidence` to include them."
+        ),
+        nrow(clade_dwell),
+        confidence,
+        max(clade_dwell$posterior_support)
+      ),
+      call. = FALSE
+    )
+  }
+
+  if (nrow(established) == 0L) {
+    return(tibble::tibble(
+      tipname = character(0),
+      deme = character(0),
+      intro_clade_id = integer(0),
+      inferred_intro_date = as.Date(character(0)),
+      last_sample_date = as.Date(character(0)),
+      inferred_intro_source = character(0),
+      inferred_intro_source_probability = numeric(0),
+      intro_confidence_state = numeric(0),
+      clade_size = integer(0),
+      intro_node = integer(0)
+    ))
+  }
+
+  # Restrict tip candidates to established clades BEFORE ranking -- a tip's
+  # global argmax (raw is_modal) can point at a clade that didn't establish.
+  candidates <- tip_membership |>
+    dplyr::inner_join(
+      dplyr::select(established, "intro_node", "deme"),
+      by = c("intro_node", "deme")
+    )
+
+  # Recompute each tip's modal pick among survivors only.
+  modal <- candidates |>
+    dplyr::group_by(.data$tipname) |>
+    dplyr::slice_max(.data$membership_prob, n = 1, with_ties = FALSE) |>
+    dplyr::ungroup() |>
+    dplyr::filter(.data$membership_prob >= confidence)
+
+  modal |>
+    dplyr::left_join(established, by = c("intro_node", "deme")) |>
+    dplyr::rename(intro_confidence_state = "posterior_support") |>
+    dplyr::select(
+      "tipname",
+      "deme",
+      "intro_clade_id",
+      "inferred_intro_date",
+      "last_sample_date",
+      "inferred_intro_source",
+      "inferred_intro_source_probability",
+      "intro_confidence_state",
+      "clade_size",
+      "intro_node"
+    )
 }

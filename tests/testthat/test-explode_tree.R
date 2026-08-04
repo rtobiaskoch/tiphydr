@@ -94,3 +94,29 @@ test_that("explode_tree errors when node_probs is supplied without annotated_tre
     "annotated_tree_path is required"
   )
 })
+
+test_that("explode_tree (simmap source) matches the node-marginal path's clade structure for the baseline fixture", {
+  tree <- make_intro_tree()
+  res <- explode_tree(
+    tree,
+    clade_dwell = make_intro_clade_dwell(tree),
+    tip_membership = make_intro_tip_membership(tree)
+  )
+
+  expect_named(res, c("introductions", "trees"))
+  expect_true("intro_node" %in% names(res$introductions))
+
+  # Same structure as the node-marginal test: 3 kept tips (regionB clade of
+  # 2 + regionC singleton), one multi-tip subtree.
+  expect_equal(nrow(res$introductions), 3L)
+  expect_length(res$trees, 1L)
+  expect_equal(ape::Ntip(res$trees[[1]]), 2L)
+  expect_setequal(
+    res$trees[[1]]$tip.label,
+    grep("^tB", tree$tip.label, value = TRUE)
+  )
+
+  # intro_confidence_state carries posterior_support for the simmap path.
+  b_row <- dplyr::filter(res$introductions, .data$deme == "regionB")
+  expect_equal(unique(b_row$intro_confidence_state), 0.9)
+})
