@@ -339,6 +339,77 @@ make_intro_annotated_tree_path <- function(tree = make_intro_tree(), tip_dates_o
   tf
 }
 
+#' Simmap-shaped clade_dwell tibble matching make_intro_tree()'s structure.
+#'
+#' Encodes the same clade structure as make_intro_node_probs(): an established
+#' regionB clade of size 2 (tB1, tB2) and a singleton regionC clade (tC1).
+#' Dates match make_intro_annotated_tree_path()'s node-date scheme exactly
+#' (node_B = 2018-01-01, tC1's own date = 2022-01-01) so cross-fixture
+#' comparisons (e.g. against the node-marginal path's output) are meaningful.
+#'
+#' @param tree The phylo from make_intro_tree().
+#' @return tibble, one row per clade.
+make_intro_clade_dwell <- function(tree = make_intro_tree()) {
+  lbl <- function(p) grep(p, tree$tip.label, value = TRUE)
+  node_B <- ape::getMRCA(tree, c(lbl("^tB1"), lbl("^tB2")))
+  tip_C <- match(lbl("^tC1"), tree$tip.label)
+
+  tibble::tibble(
+    intro_clade_id = 1:2,
+    intro_node = c(node_B, tip_C),
+    deme = c("regionB", "regionC"),
+    posterior_support = c(0.9, 0.9),
+    inferred_intro_source = c("regionA", "regionA"),
+    inferred_intro_source_probability = c(1, 1),
+    clade_size = c(2L, 1L),
+    inferred_intro_date = as.Date(c("2018-01-01", "2022-01-01")),
+    last_sample_date = as.Date(c("2021-01-01", "2022-01-01"))
+  )
+}
+
+#' Simmap-shaped tip_membership tibble matching make_intro_clade_dwell().
+#'
+#' Every tip has membership_prob = 1 / is_modal = TRUE in its one true clade
+#' (the "clean" baseline scenario) -- tA1 never appears, matching the node
+#' path's fixture where tA1 never transitions.
+#'
+#' @param tree The phylo from make_intro_tree().
+#' @return tibble, one row per (tipname, intro_node).
+make_intro_tip_membership <- function(tree = make_intro_tree()) {
+  lbl <- function(p) grep(p, tree$tip.label, value = TRUE)
+  node_B <- ape::getMRCA(tree, c(lbl("^tB1"), lbl("^tB2")))
+  tip_C <- match(lbl("^tC1"), tree$tip.label)
+
+  tibble::tibble(
+    tipname = c(lbl("^tB1"), lbl("^tB2"), lbl("^tC1")),
+    intro_node = c(node_B, node_B, tip_C),
+    deme = c("regionB", "regionB", "regionC"),
+    membership_prob = c(1, 1, 1),
+    is_modal = TRUE
+  )
+}
+
+#' Per-replicate persistence_days draws matching make_intro_clade_dwell().
+#'
+#' node_B (the established clade) gets 5 replicate draws -- enough to form a
+#' real distribution for a boxplot. tip_C (the singleton) gets exactly 1 draw,
+#' deliberately, to exercise geom_boxplot()'s degenerate n=1 case.
+#'
+#' @param tree The phylo from make_intro_tree().
+#' @return tibble, one row per (sim_id, intro_node).
+make_intro_raw_clade_dwell <- function(tree = make_intro_tree()) {
+  lbl <- function(p) grep(p, tree$tip.label, value = TRUE)
+  node_B <- ape::getMRCA(tree, c(lbl("^tB1"), lbl("^tB2")))
+  tip_C <- match(lbl("^tC1"), tree$tip.label)
+
+  tibble::tibble(
+    sim_id = c(1:5, 1L),
+    intro_node = c(rep(node_B, 5), tip_C),
+    deme = c(rep("regionB", 5), "regionC"),
+    persistence_days = c(1080, 1050, 1100, 1090, 1070, 240)
+  )
+}
+
 # ---------------------------------------------------------------------------
 # File writer — single source of truth for on-disk fixtures
 # ---------------------------------------------------------------------------
