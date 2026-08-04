@@ -4,17 +4,33 @@
 \alias{explode_tree}
 \title{Split a dated tree into introduction clades}
 \usage{
-explode_tree(tree, node_probs, annotated_tree_path, confidence = 0.5)
+explode_tree(
+  tree,
+  node_probs = NULL,
+  annotated_tree_path = NULL,
+  clade_dwell = NULL,
+  tip_membership = NULL,
+  confidence = 0.5
+)
 }
 \arguments{
 \item{tree}{An \code{ape::phylo} time tree.}
 
 \item{node_probs}{A data frame with a \code{node} column (matching ape node
 numbering) and one column per deme holding state probabilities (e.g. TreeTime
-DTA output loaded with \code{read.delim()}).}
+DTA output loaded with \code{read.delim()}). Optional; supply either this
+with \code{annotated_tree_path}, or both \code{clade_dwell} and
+\code{tip_membership}.}
 
 \item{annotated_tree_path}{Path to the dating tool's native annotated NEXUS
-output, passed through to \code{\link{node_dates_from_timetree}}.}
+output, passed through to \code{\link{node_dates_from_timetree}}. Required
+when \code{node_probs} is supplied.}
+
+\item{clade_dwell}{A data frame with clade dwell times (simmap source). Optional;
+must be supplied with \code{tip_membership} if using the simmap path.}
+
+\item{tip_membership}{A data frame with tip membership information (simmap source).
+Optional; must be supplied with \code{clade_dwell} if using the simmap path.}
 
 \item{confidence}{Minimum node probability for an established introduction
 (default 0.5). Passed to \code{\link{detect_introductions}}. When internal
@@ -26,7 +42,9 @@ probability and only singleton introductions are returned (empty
 A list with two elements:
 \describe{
 \item{\code{introductions}}{A tibble, one row per kept tip (see
-\code{\link{detect_introductions}}), without the internal \code{intro_node}.}
+\code{\link{detect_introductions}}), including \code{intro_node} (the
+ape node id of the introduction) so callers can join back to the
+source clade table.}
 \item{\code{trees}}{A named list of \code{ape::phylo} subtrees, one per
 multi-tip introduction clade, named by \code{intro_clade_id}. Singleton
 introductions (\code{clade_size == 1}) appear in \code{introductions}
