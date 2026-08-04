@@ -28,7 +28,9 @@
 #' @return A list with two elements:
 #'   \describe{
 #'     \item{\code{introductions}}{A tibble, one row per kept tip (see
-#'       \code{\link{detect_introductions}}), without the internal \code{intro_node}.}
+#'       \code{\link{detect_introductions}}), including \code{intro_node} (the
+#'       ape node id of the introduction) so callers can join back to the
+#'       source clade table.}
 #'     \item{\code{trees}}{A named list of \code{ape::phylo} subtrees, one per
 #'       multi-tip introduction clade, named by \code{intro_clade_id}. Singleton
 #'       introductions (\code{clade_size == 1}) appear in \code{introductions}

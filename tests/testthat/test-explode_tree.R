@@ -6,8 +6,9 @@ test_that("explode_tree returns introductions and one subtree per multi-tip clad
 
   # 3 kept tips (regionB clade of 2 + regionC singleton)
   expect_equal(nrow(res$introductions), 3L)
-  # internal intro_node column is not exposed
-  expect_false("intro_node" %in% names(res$introductions))
+  # intro_node is exposed (scripts/dta_explode.R in the calling pipeline
+  # depends on this column being present)
+  expect_true("intro_node" %in% names(res$introductions))
 
   # exactly one subtree (the established regionB clade), with 2 tips
   expect_length(res$trees, 1L)
