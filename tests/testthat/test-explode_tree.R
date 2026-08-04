@@ -192,3 +192,99 @@ test_that("explode_tree (simmap source) warns and returns zero rows when nothing
   expect_equal(nrow(res$introductions), 0L)
   expect_length(res$trees, 0L)
 })
+
+test_that("explode_tree (simmap source) drops a tip whose membership_prob is below confidence", {
+  tree <- make_intro_tree()
+  tip_membership <- make_intro_tip_membership(tree) |>
+    dplyr::mutate(
+      membership_prob = dplyr::if_else(
+        .data$tipname == grep("^tB2", tree$tip.label, value = TRUE),
+        0.3, # below default confidence = 0.5
+        .data$membership_prob
+      )
+    )
+
+  res <- explode_tree(
+    tree,
+    clade_dwell = make_intro_clade_dwell(tree),
+    tip_membership = tip_membership
+  )
+
+  # tB2 dropped, tB1 kept, tC1 (singleton) unaffected -- 2 rows, not 3.
+  expect_equal(nrow(res$introductions), 2L)
+  expect_false(grep("^tB2", tree$tip.label, value = TRUE) %in% res$introductions$tipname)
+  expect_true(grep("^tB1", tree$tip.label, value = TRUE) %in% res$introductions$tipname)
+
+  # clade_size still reflects the simmap's aggregate estimate (2), even
+  # though only 1 tip actually survives the per-tip floor in this output --
+  # intentional: clade_size is the model's median across replicates, not a
+  # recount of this particular filtered view. See the spec's "documented
+  # limitation" note.
+  b_row <- dplyr::filter(res$introductions, .data$deme == "regionB")
+  expect_equal(nrow(b_row), 1L)
+  expect_equal(b_row$clade_size, 2L)
+})
+
+test_that("explode_tree (simmap source) recomputes modal pick among established candidates, not the raw global argmax", {
+  tree <- make_intro_tree()
+  clade_dwell <- make_intro_clade_dwell(tree)
+  node_AC <- ape::getMRCA(
+    tree,
+    grep("^tA1|^tC1", tree$tip.label, value = TRUE)
+  )
+  # A low-support phantom clade (won't establish) that tB2 has HIGHER
+  # membership_prob in than its true (established) regionB clade -- if the
+  # implementation used the raw precomputed is_modal flag instead of
+  # recomputing among survivors, tB2 would be wrongly dropped entirely.
+  clade_dwell <- dplyr::bind_rows(
+    clade_dwell,
+    tibble::tibble(
+      intro_clade_id = 3L,
+      intro_node = node_AC,
+      deme = "regionD",
+      posterior_support = 0.2,
+      inferred_intro_source = "regionA",
+      inferred_intro_source_probability = 1,
+      clade_size = 1L,
+      inferred_intro_date = as.Date("2017-06-01"),
+      last_sample_date = as.Date("2021-01-01")
+    )
+  )
+  tip_membership <- make_intro_tip_membership(tree) |>
+    dplyr::mutate(
+      membership_prob = dplyr::if_else(
+        .data$tipname == grep("^tB2", tree$tip.label, value = TRUE),
+        0.6, # still clears confidence, but no longer 1.0
+        .data$membership_prob
+      ),
+      # tB2's regionB row is no longer its raw global modal once the regionD
+      # row below (0.7) is added -- is_modal reflects that honestly, even
+      # though .introductions_from_simmap() never reads this column itself
+      # (it recomputes modal among established survivors instead; see the
+      # docstring on that helper).
+      is_modal = dplyr::if_else(
+        .data$tipname == grep("^tB2", tree$tip.label, value = TRUE),
+        FALSE,
+        .data$is_modal
+      )
+    ) |>
+    dplyr::bind_rows(
+      tibble::tibble(
+        tipname = grep("^tB2", tree$tip.label, value = TRUE),
+        intro_node = node_AC,
+        deme = "regionD",
+        membership_prob = 0.7, # higher than its regionB row -- global argmax
+        is_modal = TRUE
+      )
+    )
+
+  res <- explode_tree(
+    tree,
+    clade_dwell = clade_dwell,
+    tip_membership = tip_membership
+  )
+
+  tb2 <- dplyr::filter(res$introductions, .data$tipname == grep("^tB2", tree$tip.label, value = TRUE))
+  expect_equal(nrow(tb2), 1L)
+  expect_equal(tb2$deme, "regionB")
+})
