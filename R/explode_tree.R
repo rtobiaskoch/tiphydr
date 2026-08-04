@@ -16,9 +16,16 @@
 #' @param tree An \code{ape::phylo} time tree.
 #' @param node_probs A data frame with a \code{node} column (matching ape node
 #'   numbering) and one column per deme holding state probabilities (e.g. TreeTime
-#'   DTA output loaded with \code{read.delim()}).
+#'   DTA output loaded with \code{read.delim()}). Optional; supply either this
+#'   with \code{annotated_tree_path}, or both \code{clade_dwell} and
+#'   \code{tip_membership}.
 #' @param annotated_tree_path Path to the dating tool's native annotated NEXUS
-#'   output, passed through to \code{\link{node_dates_from_timetree}}.
+#'   output, passed through to \code{\link{node_dates_from_timetree}}. Required
+#'   when \code{node_probs} is supplied.
+#' @param clade_dwell A data frame with clade dwell times (simmap source). Optional;
+#'   must be supplied with \code{tip_membership} if using the simmap path.
+#' @param tip_membership A data frame with tip membership information (simmap source).
+#'   Optional; must be supplied with \code{clade_dwell} if using the simmap path.
 #' @param confidence Minimum node probability for an established introduction
 #'   (default 0.5). Passed to \code{\link{detect_introductions}}. When internal
 #'   transitions exist but none clear it, a warning reports the max available
@@ -39,19 +46,47 @@
 #' @export
 explode_tree <- function(
   tree,
-  node_probs,
-  annotated_tree_path,
+  node_probs = NULL,
+  annotated_tree_path = NULL,
+  clade_dwell = NULL,
+  tip_membership = NULL,
   confidence = 0.5
 ) {
   if (!inherits(tree, "phylo")) {
     stop("tree must be an ape::phylo object")
   }
-  if (!is.data.frame(node_probs) || !"node" %in% names(node_probs)) {
-    stop("node_probs must be a data frame with a 'node' column")
+
+  has_node <- !is.null(node_probs)
+  has_simmap <- !is.null(clade_dwell) || !is.null(tip_membership)
+
+  if (has_node && has_simmap) {
+    stop(
+      "Supply exactly one source: node_probs (+ annotated_tree_path), OR ",
+      "both clade_dwell and tip_membership -- not both at once."
+    )
+  }
+  if (!has_node && !has_simmap) {
+    stop(
+      "Supply exactly one source: node_probs (+ annotated_tree_path), OR ",
+      "both clade_dwell and tip_membership."
+    )
+  }
+  if (has_simmap && (is.null(clade_dwell) || is.null(tip_membership))) {
+    stop("clade_dwell and tip_membership must both be supplied together.")
   }
 
-  tree_df <- build_tree_df(tree, node_probs, annotated_tree_path)
-  intros <- detect_introductions(tree_df, confidence = confidence)
+  if (has_node) {
+    if (is.null(annotated_tree_path)) {
+      stop("annotated_tree_path is required when using node_probs.")
+    }
+    if (!is.data.frame(node_probs) || !"node" %in% names(node_probs)) {
+      stop("node_probs must be a data frame with a 'node' column")
+    }
+    tree_df <- build_tree_df(tree, node_probs, annotated_tree_path)
+    intros <- detect_introductions(tree_df, confidence = confidence)
+  } else {
+    stop("simmap source not yet implemented") # replaced in Task 4-6
+  }
 
   # Build one subtree per multi-tip clade: descend to the introduction node, then
   # keep only the tips that passed the continued-transmission filter.

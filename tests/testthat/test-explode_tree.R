@@ -48,3 +48,49 @@ test_that("explode_tree errors when annotated_tree_path topology does not match 
     "do not share the same topology"
   )
 })
+
+test_that("explode_tree errors when neither source is supplied", {
+  tree <- make_intro_tree()
+  expect_error(
+    explode_tree(tree),
+    "Supply exactly one source"
+  )
+})
+
+test_that("explode_tree errors when both sources are supplied", {
+  tree <- make_intro_tree()
+  expect_error(
+    explode_tree(
+      tree,
+      node_probs = make_intro_node_probs(tree),
+      annotated_tree_path = make_intro_annotated_tree_path(tree),
+      clade_dwell = make_intro_clade_dwell(tree),
+      tip_membership = make_intro_tip_membership(tree)
+    ),
+    "Supply exactly one source"
+  )
+})
+
+test_that("explode_tree errors when only clade_dwell is supplied without tip_membership", {
+  tree <- make_intro_tree()
+  expect_error(
+    explode_tree(tree, clade_dwell = make_intro_clade_dwell(tree)),
+    "clade_dwell and tip_membership must both be supplied together"
+  )
+})
+
+test_that("explode_tree errors when only tip_membership is supplied without clade_dwell", {
+  tree <- make_intro_tree()
+  expect_error(
+    explode_tree(tree, tip_membership = make_intro_tip_membership(tree)),
+    "clade_dwell and tip_membership must both be supplied together"
+  )
+})
+
+test_that("explode_tree errors when node_probs is supplied without annotated_tree_path", {
+  tree <- make_intro_tree()
+  expect_error(
+    explode_tree(tree, node_probs = make_intro_node_probs(tree)),
+    "annotated_tree_path is required"
+  )
+})
