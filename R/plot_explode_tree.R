@@ -1,3 +1,24 @@
+#' Filter, order, and number clades within each deme for plotting
+#'
+#' Shared row-ordering logic between plot_explode_tree() and
+#' plot_clade_persistence() -- keeping both in one place guarantees their
+#' rows line up when the two plots are viewed side by side.
+#'
+#' @param clade_tbl A tibble with (at least) clade_size, deme,
+#'   inferred_intro_date columns, one row per clade.
+#' @param min_clade Minimum clade_size to keep.
+#' @return clade_tbl, filtered, arranged by (deme, inferred_intro_date), with
+#'   a local_clade_num column added (1..N within each deme).
+.order_clades <- function(clade_tbl, min_clade = 1) {
+  clade_tbl |>
+    dplyr::filter(.data$clade_size >= min_clade) |>
+    dplyr::arrange(.data$deme, .data$inferred_intro_date) |>
+    dplyr::mutate(
+      local_clade_num = dplyr::row_number(),
+      .by = "deme"
+    )
+}
+
 #' Plot introduction clade timelines from explode_tree output
 #'
 #' Visualises each introduction clade as a horizontal segment: from
@@ -73,13 +94,7 @@ plot_explode_tree <- function(
         )
       }
     ) |>
-    # Number clades 1..N within each deme, ordered chronologically by intro date
-    dplyr::filter(.data$clade_size >= min_clade) |>
-    dplyr::arrange(.data$deme, .data$inferred_intro_date) |>
-    dplyr::mutate(
-      local_clade_num = dplyr::row_number(),
-      .by = "deme"
-    )
+    .order_clades(min_clade)
 
   # Guard: RColorBrewer palettes have a fixed maximum. Skip when named_palette
   # is supplied (no maxcolors constraint for explicit named vectors).
