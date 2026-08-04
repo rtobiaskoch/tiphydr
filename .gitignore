@@ -8,3 +8,6 @@ data-raw/git
 
 # Claude session change log
 CLAUDE_CHANGES.md
+
+# Git worktrees for isolated agent work
+.worktrees/
