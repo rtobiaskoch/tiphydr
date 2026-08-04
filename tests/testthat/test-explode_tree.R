@@ -120,3 +120,75 @@ test_that("explode_tree (simmap source) matches the node-marginal path's clade s
   b_row <- dplyr::filter(res$introductions, .data$deme == "regionB")
   expect_equal(unique(b_row$intro_confidence_state), 0.9)
 })
+
+test_that("explode_tree (simmap source) excludes clades below the posterior_support floor", {
+  tree <- make_intro_tree()
+  clade_dwell <- make_intro_clade_dwell(tree)
+  tip_membership <- make_intro_tip_membership(tree)
+
+  # Add a low-support phantom clade at a real tree node (node_AC) -- grounded
+  # in the tree so tree-extraction wouldn't choke if the filter failed to
+  # exclude it, but posterior_support = 0.2 should keep it out entirely. Give
+  # it a REAL candidate tip (tA1, which has zero rows in the baseline
+  # tip_membership -- it never transitions) with membership_prob = 1: if the
+  # establishment filter were broken or absent, tA1 would wrongly appear as
+  # a regionD introduction. Without this candidate row the test would pass
+  # trivially even with a broken filter, since there'd be nothing to
+  # wrongly include.
+  node_AC <- ape::getMRCA(
+    tree,
+    grep("^tA1|^tC1", tree$tip.label, value = TRUE)
+  )
+  clade_dwell <- dplyr::bind_rows(
+    clade_dwell,
+    tibble::tibble(
+      intro_clade_id = 3L,
+      intro_node = node_AC,
+      deme = "regionD",
+      posterior_support = 0.2,
+      inferred_intro_source = "regionA",
+      inferred_intro_source_probability = 1,
+      clade_size = 1L,
+      inferred_intro_date = as.Date("2017-06-01"),
+      last_sample_date = as.Date("2019-01-01")
+    )
+  )
+  tip_membership <- dplyr::bind_rows(
+    tip_membership,
+    tibble::tibble(
+      tipname = grep("^tA1", tree$tip.label, value = TRUE),
+      intro_node = node_AC,
+      deme = "regionD",
+      membership_prob = 1,
+      is_modal = TRUE
+    )
+  )
+
+  res <- explode_tree(
+    tree,
+    clade_dwell = clade_dwell,
+    tip_membership = tip_membership
+  )
+
+  expect_false("regionD" %in% res$introductions$deme)
+  expect_false(grep("^tA1", tree$tip.label, value = TRUE) %in% res$introductions$tipname)
+  # baseline clades unaffected
+  expect_equal(nrow(res$introductions), 3L)
+})
+
+test_that("explode_tree (simmap source) warns and returns zero rows when nothing clears confidence", {
+  tree <- make_intro_tree()
+  clade_dwell <- make_intro_clade_dwell(tree) |>
+    dplyr::mutate(posterior_support = 0.1)
+
+  expect_warning(
+    res <- explode_tree(
+      tree,
+      clade_dwell = clade_dwell,
+      tip_membership = make_intro_tip_membership(tree)
+    ),
+    "none reach"
+  )
+  expect_equal(nrow(res$introductions), 0L)
+  expect_length(res$trees, 0L)
+})
