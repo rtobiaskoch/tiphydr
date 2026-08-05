@@ -6,12 +6,16 @@
 #'
 #' @param clade_tbl A tibble with (at least) clade_size, deme,
 #'   inferred_intro_date columns, one row per clade.
-#' @param min_clade Minimum clade_size to keep.
+#' @param min_clade Minimum clade_size to keep. Clades with `clade_size == 0`
+#'   are exempt: those are unsampled introductions (a deme occupancy the lineage
+#'   left again before reaching any sampled descendant), so there is no clade
+#'   size for a size threshold to act on. Filtering those is the caller's job --
+#'   posterior support, not tip count, is the meaningful threshold for them.
 #' @return clade_tbl, filtered, arranged by (deme, inferred_intro_date), with
 #'   a local_clade_num column added (1..N within each deme).
 .order_clades <- function(clade_tbl, min_clade = 1) {
   clade_tbl |>
-    dplyr::filter(.data$clade_size >= min_clade) |>
+    dplyr::filter(.data$clade_size >= min_clade | .data$clade_size == 0) |>
     dplyr::arrange(.data$deme, .data$inferred_intro_date) |>
     dplyr::mutate(
       local_clade_num = dplyr::row_number(),
@@ -140,7 +144,14 @@ plot_explode_tree <- function(
     clade_long,
     .data$date_type == "inferred_intro_date"
   )
-  sample_pts <- dplyr::filter(clade_long, .data$date_type == "last_sample_date")
+  # An unsampled introduction (clade_size == 0) has no last sample to mark --
+  # its line still runs to where the lineage left the deme, but it gets no
+  # terminal point, so the two kinds of row stay readable apart at a glance.
+  sample_pts <- dplyr::filter(
+    clade_long,
+    .data$date_type == "last_sample_date",
+    .data$clade_size > 0
+  )
 
   ggplot2::ggplot(clade_long, ggplot2::aes(y = .data$local_clade_num)) +
     # Segment colored by persistence (was the clade transient or long-lived?)
