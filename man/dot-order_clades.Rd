@@ -10,7 +10,11 @@
 \item{clade_tbl}{A tibble with (at least) clade_size, deme,
 inferred_intro_date columns, one row per clade.}
 
-\item{min_clade}{Minimum clade_size to keep.}
+\item{min_clade}{Minimum clade_size to keep. Clades with \code{clade_size == 0}
+are exempt: those are unsampled introductions (a deme occupancy the lineage
+left again before reaching any sampled descendant), so there is no clade
+size for a size threshold to act on. Filtering those is the caller's job --
+posterior support, not tip count, is the meaningful threshold for them.}
 }
 \value{
 clade_tbl, filtered, arranged by (deme, inferred_intro_date), with

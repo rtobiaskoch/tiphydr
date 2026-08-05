@@ -7,8 +7,10 @@
 plot_explode_tree(
   introductions,
   persistence_days = 365,
-  palette_persistence = "Dark2",
-  palette_source = "Set2"
+  persistent_days = NULL,
+  min_clade = 1,
+  palette_source = "Set2",
+  named_palette = NULL
 )
 }
 \arguments{
@@ -17,11 +19,14 @@ Required columns: \code{intro_clade_id}, \code{deme},
 \code{inferred_intro_date}, \code{last_sample_date},
 \code{inferred_intro_source}, \code{clade_size}.}
 
-\item{persistence_days}{Numeric scalar. Days a clade must span (intro date to
-last sample) to be labelled \code{"persistent"}. Default 365 (one year).}
+\item{persistence_days}{Numeric scalar. Days below which a clade is labelled
+\code{"transient"}. Default 365 (one year). When \code{persistent_days} is
+also supplied, clades between the two thresholds are labelled
+\code{"semi-persistent"}.}
 
-\item{palette_persistence}{RColorBrewer palette for the persistence colour
-scale (line + last-sample point). Default \code{"Dark2"}.}
+\item{persistent_days}{Numeric scalar or \code{NULL}. Days above which a clade
+is labelled \code{"persistent"}. If \code{NULL} (default), the old two-class
+behaviour is used (\code{"persistent"} / \code{"transient"} only).}
 
 \item{palette_source}{RColorBrewer palette for the source-deme fill scale
 (introduction-date point). Default \code{"Set2"}.}

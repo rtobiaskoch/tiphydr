@@ -2,25 +2,63 @@
 % Please edit documentation in R/plot_tree_trait.R
 \name{plot_tree_trait}
 \alias{plot_tree_trait}
-\title{Plot a phylogenetic tree coloured by a discrete trait}
+\title{Plot a phylogenetic tree coloured by a trait (discrete or continuous)}
 \usage{
-plot_tree_trait(tree_df, trait, palette = "Dark2")
+plot_tree_trait(
+  tree_df,
+  trait,
+  confidence = "confidence_state",
+  palette = "Dark2",
+  branch_state = c("parent", "node")
+)
 }
 \arguments{
-\item{tree_df}{A \code{tbl_tree} returned by \code{\link{build_tree_df}}.}
+\item{tree_df}{A \code{tbl_tree} with \code{node}, \code{parent}, and the
+\code{trait} column (e.g. from \code{\link{build_tree_df}}).}
 
-\item{trait}{Character scalar — name of a discrete (character or factor)
-column in \code{tree_df} to colour by.}
+\item{trait}{Character scalar — name of the column to colour by.}
 
-\item{palette}{RColorBrewer palette name. Default \code{"Dark2"}.}
+\item{confidence}{Character scalar — name of an optional numeric confidence
+column (default \code{"confidence_state"}). Silently ignored if absent.}
+
+\item{palette}{RColorBrewer palette name for discrete traits. Default
+\code{"Dark2"}. Ignored for continuous traits.}
+
+\item{branch_state}{Which node's trait paints each branch. \code{"parent"}
+(default) is the nextstrain convention — colour flows down from the
+ancestor. \code{"node"} paints each branch with its own child endpoint's
+trait, so a branch always matches the point it leads to.
+
+Neither is universally right, because a single colour cannot represent a
+branch on which the state changes partway. They differ in which half they
+misrepresent: \code{"parent"} shows the state the lineage arrived in and
+hides a transition that happens on the branch; \code{"node"} shows the
+state it ended in and hides where it came from. \code{"node"} is the more
+defensible choice for terminal branches specifically, since a tip's state
+is observed data rather than a reconstruction — painting it with an
+inferred ancestral state puts inference on top of an observation.}
 }
 \value{
 A \code{ggplot} object. Additional \pkg{ggplot2} layers can be added
 with \code{+}.
 }
 \description{
-Visualises the output of \code{\link{build_tree_df}} with branches coloured
-by the parent (ancestral) node's trait — the nextstrain branch-colouring
-convention — and tips and internal nodes coloured by their own trait value.
-Returns a \pkg{ggplot2} object that can be extended with additional layers.
+Colours a tidy tree table by any trait column. By default it follows the
+nextstrain branch-colouring convention: each branch takes its parent
+(ancestral) node's trait, while tips and internal nodes are coloured by
+their own value. Set \code{branch_state = "node"} to colour each branch by
+its own endpoint instead. The
+trait type is detected automatically — a numeric column gets a continuous
+\pkg{viridis} gradient, anything else (character/factor) gets a discrete
+RColorBrewer palette. Returns a \pkg{ggplot2} object that can be extended
+with additional layers.
+}
+\details{
+If a per-node confidence column is present it is double-encoded as point size
+and alpha (larger, more opaque = higher confidence). When absent, plain
+points are drawn — so the function works on any \code{tbl_tree}, not just the
+output of \code{\link{build_tree_df}}.
+
+Integer-coded categories (e.g. demes stored as 1/2/3) will render as a
+gradient; pass them as a factor to get discrete colours.
 }

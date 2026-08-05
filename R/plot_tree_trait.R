@@ -1,8 +1,10 @@
 #' Plot a phylogenetic tree coloured by a trait (discrete or continuous)
 #'
-#' Colours a tidy tree table by any trait column, following the nextstrain
-#' branch-colouring convention: each branch takes its parent (ancestral) node's
-#' trait, while tips and internal nodes are coloured by their own value. The
+#' Colours a tidy tree table by any trait column. By default it follows the
+#' nextstrain branch-colouring convention: each branch takes its parent
+#' (ancestral) node's trait, while tips and internal nodes are coloured by
+#' their own value. Set \code{branch_state = "node"} to colour each branch by
+#' its own endpoint instead. The
 #' trait type is detected automatically — a numeric column gets a continuous
 #' \pkg{viridis} gradient, anything else (character/factor) gets a discrete
 #' RColorBrewer palette. Returns a \pkg{ggplot2} object that can be extended
@@ -23,13 +25,28 @@
 #'   column (default \code{"confidence_state"}). Silently ignored if absent.
 #' @param palette RColorBrewer palette name for discrete traits. Default
 #'   \code{"Dark2"}. Ignored for continuous traits.
+#' @param branch_state Which node's trait paints each branch. \code{"parent"}
+#'   (default) is the nextstrain convention — colour flows down from the
+#'   ancestor. \code{"node"} paints each branch with its own child endpoint's
+#'   trait, so a branch always matches the point it leads to.
+#'
+#'   Neither is universally right, because a single colour cannot represent a
+#'   branch on which the state changes partway. They differ in which half they
+#'   misrepresent: \code{"parent"} shows the state the lineage arrived in and
+#'   hides a transition that happens on the branch; \code{"node"} shows the
+#'   state it ended in and hides where it came from. \code{"node"} is the more
+#'   defensible choice for terminal branches specifically, since a tip's state
+#'   is observed data rather than a reconstruction — painting it with an
+#'   inferred ancestral state puts inference on top of an observation.
 #'
 #' @return A \code{ggplot} object. Additional \pkg{ggplot2} layers can be added
 #'   with \code{+}.
 #' @export
 plot_tree_trait <- function(tree_df, trait,
                             confidence = "confidence_state",
-                            palette    = "Dark2") {
+                            palette    = "Dark2",
+                            branch_state = c("parent", "node")) {
+  branch_state <- match.arg(branch_state)
   # --- Validate: only require what is actually used --------------------------
   required_cols <- c("node", "parent")
   missing_cols  <- setdiff(required_cols, names(tree_df))
@@ -94,9 +111,12 @@ plot_tree_trait <- function(tree_df, trait,
   # --- Convert to phylo for ggtree (annotations reattached via %<+%) ---------
   phylo <- tidytree::as.phylo(tree_df)
 
+  # Which column paints the branches -- see the branch_state @param.
+  branch_col <- if (branch_state == "parent") "parent_trait" else trait
+
   p <- ggtree::ggtree(phylo)
   p <- ggtree::`%<+%`(p, node_data) +
-    ggplot2::aes(color = .data$parent_trait) +
+    ggplot2::aes(color = .data[[branch_col]]) +
     ggtree::geom_tippoint(point_aes) +
     ggtree::geom_nodepoint(point_aes)
 
