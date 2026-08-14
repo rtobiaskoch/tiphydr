@@ -121,6 +121,41 @@ test_that("explode_tree (simmap source) matches the node-marginal path's clade s
   expect_equal(unique(b_row$intro_confidence_state), 0.9)
 })
 
+test_that("explode_tree (simmap source) ignores extra tip_membership columns that collide with clade_dwell", {
+  # Regression: tip_membership used to be joined onto clade_dwell whole, so any
+  # column name present in both was suffixed .x/.y and the select() that follows
+  # failed with a subscript-out-of-bounds error. Callers legitimately carry
+  # extra per-tip columns -- dta_compute.R's table gained clade_label,
+  # clade_label_all, clade_size and is_dominant_clade, all four of which also
+  # exist (or now exist) in clade_dwell.
+  tree <- make_intro_tree()
+  baseline <- explode_tree(
+    tree,
+    clade_dwell = make_intro_clade_dwell(tree),
+    tip_membership = make_intro_tip_membership(tree)
+  )
+
+  wide_membership <- make_intro_tip_membership(tree) |>
+    dplyr::mutate(
+      clade_size = 99L, # collides, and holds a deliberately WRONG value
+      clade_label = "should_be_ignored",
+      posterior_support = 0.01, # collides with the column driving establishment
+      inferred_intro_date = as.Date("1900-01-01")
+    )
+
+  wide <- explode_tree(
+    tree,
+    clade_dwell = make_intro_clade_dwell(tree),
+    tip_membership = wide_membership
+  )
+
+  # Identical output, not merely a successful run: the extra columns must be
+  # dropped, never allowed to shadow clade_dwell's values.
+  expect_equal(wide$introductions, baseline$introductions)
+  expect_false("clade_label" %in% names(wide$introductions))
+  expect_equal(unique(wide$introductions$clade_size), c(2L, 1L))
+})
+
 test_that("explode_tree (simmap source) excludes clades below the posterior_support floor", {
   tree <- make_intro_tree()
   clade_dwell <- make_intro_clade_dwell(tree)

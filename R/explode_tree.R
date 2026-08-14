@@ -131,6 +131,9 @@ explode_tree <- function(
 #'   _dta_tip_membership.tsv) -- the FULL table, not pre-filtered to
 #'   is_modal == TRUE rows, since the modal pick here is recomputed after
 #'   establishment filtering, not read off the file's own is_modal column.
+#'   Only those four columns are read; any others are dropped up front, so a
+#'   caller may pass a wider table without risking a name collision against
+#'   `clade_dwell`.
 #' @param confidence Minimum value, shared by both filter steps: clade-level
 #'   posterior_support and (post-establishment) tip-level membership_prob.
 #' @return A tibble with the same columns as detect_introductions()'s output:
@@ -174,7 +177,16 @@ explode_tree <- function(
 
   # Restrict tip candidates to established clades BEFORE ranking -- a tip's
   # global argmax (raw is_modal) can point at a clade that didn't establish.
+  #
+  # Narrowed to the four columns this function actually uses. Callers routinely
+  # carry extra per-tip columns alongside them -- dta_compute.R's tip_membership
+  # gained clade_label, clade_label_all, clade_size and is_dominant_clade -- and
+  # every name shared with clade_dwell would be suffixed .x/.y by the
+  # left_join() below, putting the select() that follows out of bounds. Taking
+  # only what is needed makes that join depend on this function's own documented
+  # contract rather than on whatever else the caller happens to be carrying.
   candidates <- tip_membership |>
+    dplyr::select("tipname", "intro_node", "deme", "membership_prob") |>
     dplyr::inner_join(
       dplyr::select(established, "intro_node", "deme"),
       by = c("intro_node", "deme")
