@@ -148,7 +148,7 @@ library(dplyr)
 # 1. Read data
 ref      <- fasta_read("data/wnv_ref.fasta")
 seqs     <- fasta_read("data/wnv_sequences.fasta")
-muts     <- read.csv("data/lineage_mutations_ORF.csv")
+muts     <- wnv_mut_orf # bundled dataset, see ?wnv_mut_orf
 
 # 2. Align and trim to reference coordinates
 trimmed <- fasta_trim_ref(seqs, ref)
@@ -167,7 +167,7 @@ library(dplyr)
 ref      <- fasta_read("data/wnv_ref.fasta")
 seqs     <- fasta_read("data/wnv_sequences.fasta")
 metadata <- read.csv("data/metadata.csv")
-muts     <- read.csv("data/lineage_mutations_ORF.csv")
+muts     <- wnv_mut_orf # bundled dataset, see ?wnv_mut_orf
 
 # 2. Align and trim to reference coordinates
 trimmed <- fasta_trim_ref(seqs, ref)

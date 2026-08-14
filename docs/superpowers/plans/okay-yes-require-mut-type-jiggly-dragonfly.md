@@ -12,7 +12,7 @@ second `assign_one`) and lets one table mix nuc and aa rows.
 Two problems motivated this change:
 
 1. **The original bug.** `mut_type` defaulted to a value, so a caller passing an
-   amino-acid mutation table (`data/lineage_mutations_ORF.csv`, residues
+   amino-acid mutation table (`data/wnv_mut_ORF.csv`, residues
    `A K M T V`) without setting `mut_type` silently compared AA letters against
    single nucleotides and returned all `unknown`. A content-based "is this aa or
    nuc?" guard cannot fix this: every residue in that table (`A`, `K`, `M`, `T`,

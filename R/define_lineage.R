@@ -9,7 +9,10 @@
 #'
 #' Assignment is strict: all mutations for a lineage must be present. If a
 #' sequence matches multiple lineages, the one with the most required mutations
-#' (most specific) is assigned. Ties are broken alphabetically with a warning.
+#' (most specific) is assigned. A tie between two or more equally-specific
+#' lineages has no principled winner, so it is not broken arbitrarily: the
+#' tied lineage names are sorted and joined with "-" to form a composite
+#' label (e.g. "NY10_NS2A-SW03_NS5"), with a warning naming the tie.
 #'
 #' For gene-relative amino acid mutations, resolve them to alignment coordinates
 #' first with resolve_mut_positions(), then pass its `aa_start` column as `pos`
@@ -187,14 +190,18 @@ define_lineage <- function(
     candidates <- matched[n_muts == max_n]
 
     if (length(candidates) > 1L) {
+      # A tie between equally-specific lineages has no principled winner, so it
+      # is not resolved arbitrarily: the tied names are combined into a
+      # composite label instead.
+      hybrid_label <- paste(sort(candidates), collapse = "-")
       warning(
         "Sequence '",
         seq_names[seq_idx],
         "' matched lineages with equal specificity: ",
         paste(sort(candidates), collapse = ", "),
-        ". Assigning first alphabetically."
+        ". Assigning composite lineage '", hybrid_label, "'."
       )
-      candidates <- sort(candidates)[1L]
+      return(hybrid_label)
     }
     candidates
   }

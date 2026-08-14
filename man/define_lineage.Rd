@@ -37,7 +37,10 @@ alignment position N equals ungapped reference position N. Positions in
 \details{
 Assignment is strict: all mutations for a lineage must be present. If a
 sequence matches multiple lineages, the one with the most required mutations
-(most specific) is assigned. Ties are broken alphabetically with a warning.
+(most specific) is assigned. A tie between two or more equally-specific
+lineages has no principled winner, so it is not broken arbitrarily: the
+tied lineage names are sorted and joined with "-" to form a composite
+label (e.g. "NY10_NS2A-SW03_NS5"), with a warning naming the tie.
 
 For gene-relative amino acid mutations, resolve them to alignment coordinates
 first with resolve_mut_positions(), then pass its \code{aa_start} column as \code{pos}

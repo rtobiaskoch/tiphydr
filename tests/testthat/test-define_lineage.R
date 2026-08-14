@@ -68,6 +68,24 @@ test_that("multiple-match: assigns most-specific (most mutations)", {
   expect_equal(result$lineage[result$strain == "WNV|2021|CO|NY10_001"], "NY10")
 })
 
+test_that("equal-specificity tie: assigns a sorted composite label with a warning", {
+  # NS2A_002 has pos4=G, pos10=A (wildtype). Two disjoint 1-mutation lineages,
+  # TIE_A (pos4=G) and TIE_B (pos10=A), both match with equal specificity —
+  # NY10 does not match (it needs pos10=C), so there is no more-specific winner.
+  tie_muts <- tibble::tibble(
+    lineage = c("TIE_A", "TIE_B"),
+    pos = c(4L, 10L),
+    residue = c("G", "A")
+  )
+  expect_warning(
+    result <- suppressMessages(
+      define_lineage(make_test_biostring(), make_test_ref(), tie_muts, mut_type = "nuc")
+    ),
+    "equal specificity.*composite lineage 'TIE_A-TIE_B'"
+  )
+  expect_equal(result$lineage[result$strain == "WNV|2020|CO|NS2A_002"], "TIE_A-TIE_B")
+})
+
 test_that("muts missing required columns throws error", {
   bad_muts <- tibble::tibble(lineage = "NY10", position = 10L, base = "A")
   expect_error(
