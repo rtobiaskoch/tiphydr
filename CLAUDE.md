@@ -13,6 +13,9 @@ develop suite of R functions for:
 3. Working with Trees:
   a. manipulate, split and modify trees based off ancestral node and tip info.
 
+OUT-OF-SCOPE
+modeling, imputing and altering raw data 
+
 To prevent reinventing the wheel ensure no current functions exist that accomplish the same thing I am proposing
 Use Tidyverse styling
 

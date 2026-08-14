@@ -1,6 +1,8 @@
 # tiphydr — Tidy Phylodynamics in R
 
-An R package for fast, tidy manipulation of sequence data and associated metadata. Functions are designed to compose left-to-right in a pipeline: read → combine → nest with metadata → align and trim → assign lineages.
+An R package for fast, tidy manipulation of genomic and phylogenetic data.
+This package should not be modeling or changing any raw data.
+Functions are designed to compose left-to-right in a pipeline: read → combine → nest with metadata → align and trim → assign lineages.
 
 ------------------------------------------------------------------------
 

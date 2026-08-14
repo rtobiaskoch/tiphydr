@@ -16,7 +16,10 @@ last_sample_date (the shape of dta_compute.R's _dta_clade_dwell.tsv).}
 intro_node, deme, membership_prob (the shape of
 _dta_tip_membership.tsv) -- the FULL table, not pre-filtered to
 is_modal == TRUE rows, since the modal pick here is recomputed after
-establishment filtering, not read off the file's own is_modal column.}
+establishment filtering, not read off the file's own is_modal column.
+Only those four columns are read; any others are dropped up front, so a
+caller may pass a wider table without risking a name collision against
+\code{clade_dwell}.}
 
 \item{confidence}{Minimum value, shared by both filter steps: clade-level
 posterior_support and (post-establishment) tip-level membership_prob.}

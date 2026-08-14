@@ -10,7 +10,9 @@ detect_introductions(tree_df, confidence = 0.51)
 \item{tree_df}{A \code{tbl_tree} from \code{\link{build_tree_df}}.}
 
 \item{confidence}{Minimum node probability for an established (internal-node)
-introduction. Default 0.5. Singleton (tip) introductions are not filtered.
+introduction. Default 0.5. Nodes at exactly 0.5 (equal posterior weight on
+two states) are excluded — the filter is strictly greater than this value.
+Singleton (tip) introductions are not filtered.
 If internal transitions exist but none clear \code{confidence}, a warning
 reports the maximum available probability so the threshold can be tuned.}
 }
@@ -19,6 +21,8 @@ A tibble with one row per kept tip: \code{tipname}, \code{deme}
 (destination), \code{intro_clade_id}, \code{inferred_intro_date},
 \code{last_sample_date} (most recent tip date in the clade),
 \code{inferred_intro_source} (parent deme), \code{inferred_intro_source_probability},
+\code{intro_confidence_state} (posterior probability that the introduction
+node is in \code{deme}; for singletons, the tip's own state confidence),
 \code{clade_size}, and \code{intro_node} (ape node id of the introduction,
 used to extract subtrees).
 }
