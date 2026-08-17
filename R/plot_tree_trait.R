@@ -10,10 +10,16 @@
 #' RColorBrewer palette. Returns a \pkg{ggplot2} object that can be extended
 #' with additional layers.
 #'
-#' If a per-node confidence column is present it is double-encoded as point size
-#' and alpha (larger, more opaque = higher confidence). When absent, plain
-#' points are drawn — so the function works on any \code{tbl_tree}, not just the
-#' output of \code{\link{build_tree_df}}.
+#' Points are drawn Nextstrain-style: shape 21 with an independent border and
+#' fill. The border is a flat, fully-opaque light grey so points read as
+#' distinct circles against the (alpha-dimmed) branches behind them; fill
+#' carries the trait colour. If a per-node confidence column is present it is
+#' double-encoded as point size and fill alpha (larger, more opaque = higher
+#' confidence) — the alpha is baked directly into the fill colour rather than
+#' mapped as its own aesthetic, so it dims the fill only, not the border. When
+#' confidence is absent, fill is a flat alpha of 0.6 and only size is plain —
+#' so the function works on any \code{tbl_tree}, not just the output of
+#' \code{\link{build_tree_df}}.
 #'
 #' Integer-coded categories (e.g. demes stored as 1/2/3) will render as a
 #' gradient; pass them as a factor to get discrete colours.
@@ -24,7 +30,17 @@
 #' @param confidence Character scalar — name of an optional numeric confidence
 #'   column (default \code{"confidence_state"}). Silently ignored if absent.
 #' @param palette RColorBrewer palette name for discrete traits. Default
-#'   \code{"Dark2"}. Ignored for continuous traits.
+#'   \code{"Dark2"}. Ignored for continuous traits, and ignored when
+#'   \code{named_palette} is supplied.
+#' @param named_palette Optional named character vector (trait level -> hex
+#'   colour) for discrete traits, e.g. a project-stable palette instead of the
+#'   auto-generated Dark2-by-appearance-order one. Ignored for continuous
+#'   traits. Passing your own palette here -- rather than appending
+#'   \code{+ scale_color_manual(values = ...)} after the call -- matters
+#'   because branches AND point fills need to agree: fills are LITERAL
+#'   per-row colours baked in during this call (see the point styling
+#'   paragraph above), so a scale added afterward only repaints the branches,
+#'   leaving points on the old palette.
 #' @param branch_state Which node's trait paints each branch. \code{"parent"}
 #'   (default) is the nextstrain convention — colour flows down from the
 #'   ancestor. \code{"node"} paints each branch with its own child endpoint's
@@ -45,7 +61,8 @@
 plot_tree_trait <- function(tree_df, trait,
                             confidence = "confidence_state",
                             palette    = "Dark2",
-                            branch_state = c("parent", "node")) {
+                            branch_state = c("parent", "node"),
+                            named_palette = NULL) {
   branch_state <- match.arg(branch_state)
   # --- Validate: only require what is actually used --------------------------
   required_cols <- c("node", "parent")
@@ -100,12 +117,47 @@ plot_tree_trait <- function(tree_df, trait,
     )
   }
 
-  # --- Point aesthetics: colour by own trait, size/alpha by confidence ------
-  point_aes <- if (has_confidence) {
-    ggplot2::aes(color = .data[[trait]], size = .data$conf_level,
-                 alpha = .data$conf_level)
+  # --- Colour lookup for the trait, reused below to bake literal point fills -
+  # brewer.pal minimum is 3; slice to the actual number of levels. na.omit:
+  # root node has NA parent_trait -- not a real level.
+  if (is_continuous) {
+    trait_range <- range(node_data[[trait]], na.rm = TRUE)
+    trait_color_of <- function(x) {
+      scales::gradient_n_pal(viridisLite::viridis(256))(
+        scales::rescale(x, from = trait_range)
+      )
+    }
+  } else if (!is.null(named_palette)) {
+    colors <- named_palette
+    trait_color_of <- function(x) unname(colors[as.character(x)])
   } else {
-    ggplot2::aes(color = .data[[trait]])
+    trait_levels <- unique(stats::na.omit(node_data[[trait]]))
+    n_colors <- max(3L, length(trait_levels))
+    colors <- RColorBrewer::brewer.pal(n_colors, palette)[seq_along(trait_levels)]
+    names(colors) <- trait_levels
+    trait_color_of <- function(x) unname(colors[as.character(x)])
+  }
+
+  # --- Point aesthetics: Nextstrain-style shape 21, border/fill independent -
+  # Fill is a LITERAL per-row colour (not a mapped + scaled aesthetic), with
+  # confidence (when present) baked directly into its alpha channel -- ggplot's
+  # own `alpha` aesthetic would dim the border too, since it is not
+  # fill-specific on shape 21. The confidence -> alpha values match the
+  # quartile breakpoints the old scale_alpha_manual() used exactly. Border is
+  # set to a flat, fully-opaque light grey as a literal geom param below (not
+  # here), independent of the trait or confidence.
+  if (has_confidence) {
+    conf_alpha <- c(
+      "0-25%" = 0.25, "25-50%" = 0.5, "50-75%" = 0.75, "75-100%" = 1.0
+    )
+    node_data$.fill <- scales::alpha(
+      trait_color_of(node_data[[trait]]),
+      unname(conf_alpha[as.character(node_data$conf_level)])
+    )
+    point_aes <- ggplot2::aes(fill = I(.data$.fill), size = .data$conf_level)
+  } else {
+    node_data$.fill <- scales::alpha(trait_color_of(node_data[[trait]]), 0.6)
+    point_aes <- ggplot2::aes(fill = I(.data$.fill))
   }
 
   # --- Convert to phylo for ggtree (annotations reattached via %<+%) ---------
@@ -114,37 +166,31 @@ plot_tree_trait <- function(tree_df, trait,
   # Which column paints the branches -- see the branch_state @param.
   branch_col <- if (branch_state == "parent") "parent_trait" else trait
 
-  p <- ggtree::ggtree(phylo)
+  # Branch alpha 0.6 matches the point fill's flat-case alpha, dimming
+  # branches so the (fully-opaque-bordered) points stand out against them.
+  p <- ggtree::ggtree(phylo, alpha = 0.6)
   p <- ggtree::`%<+%`(p, node_data) +
     ggplot2::aes(color = .data[[branch_col]]) +
-    ggtree::geom_tippoint(point_aes) +
-    ggtree::geom_nodepoint(point_aes)
+    ggtree::geom_tippoint(point_aes, shape = 21, colour = "grey90", stroke = 0.3) +
+    ggtree::geom_nodepoint(point_aes, shape = 21, colour = "grey90", stroke = 0.3)
 
-  # --- Colour scale: viridis for continuous, brewer for discrete ------------
-  # Branches (parent_trait) and points (trait) share one colour scale.
+  # --- Colour scale for branches (parent_trait): viridis / brewer -----------
+  # Points no longer use this scale directly (their fill is literal, baked
+  # from the same trait_color_of() lookup above), but branches still do, and
+  # that is what provides the trait legend.
   if (is_continuous) {
     p <- p + ggplot2::scale_color_viridis_c(name = trait, na.value = "grey80")
   } else {
-    # brewer.pal minimum is 3; slice to the actual number of levels.
-    # na.omit: root node has NA parent_trait — not a real level.
-    trait_levels <- unique(stats::na.omit(node_data[[trait]]))
-    n_colors <- max(3L, length(trait_levels))
-    colors <- RColorBrewer::brewer.pal(n_colors, palette)[seq_along(trait_levels)]
-    names(colors) <- trait_levels
     p <- p + ggplot2::scale_color_manual(
       values = colors, name = trait, na.translate = FALSE
     )
   }
 
-  # --- Confidence size/alpha scales (only if used) --------------------------
+  # --- Confidence size scale (only if used) ----------------------------------
   if (has_confidence) {
     p <- p +
       ggplot2::scale_size_manual(
         values = c("0-25%" = 1, "25-50%" = 2, "50-75%" = 3, "75-100%" = 4),
-        name = "Confidence", na.translate = FALSE
-      ) +
-      ggplot2::scale_alpha_manual(
-        values = c("0-25%" = 0.25, "25-50%" = 0.5, "50-75%" = 0.75, "75-100%" = 1.0),
         name = "Confidence", na.translate = FALSE
       )
   }
