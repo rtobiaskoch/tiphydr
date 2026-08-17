@@ -5,9 +5,13 @@
 \alias{wnv_mut_orf}
 \title{WNV lineage-defining mutations (polyprotein/ORF coordinates)}
 \format{
-A tibble with 49 rows and 3 columns:
+A tibble with 49 rows and 4 columns:
 \describe{
 \item{lineage}{Lineage name (chr).}
+\item{major_lineage}{Lineage collapsed to one of \code{NY99}, \code{WN02}, \code{SW03},
+\code{NY10} — whichever family has more markers present. Cross-family
+lineages with a tied marker count keep their own \code{lineage} name here
+instead of being forced to a side (chr).}
 \item{pos}{Amino acid position from the polyprotein CDS start (int).}
 \item{residue}{Required amino acid residue at \code{pos} (chr).}
 }

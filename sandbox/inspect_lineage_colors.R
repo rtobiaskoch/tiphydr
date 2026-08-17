@@ -16,11 +16,23 @@ palette$lineage <- factor(palette$lineage, levels = rev(palette$lineage))
 
 swatch_plot <- ggplot(palette, aes(x = 1, y = lineage, fill = color)) +
   geom_tile(width = 1, height = 0.9, color = "white", linewidth = 1) +
-  geom_text(aes(label = paste(lineage, color)), hjust = 0, x = 1.55, size = 3.5) +
+  geom_text(
+    aes(label = paste(lineage, color)),
+    hjust = 0,
+    x = 1.55,
+    size = 3.5
+  ) +
   scale_fill_identity() +
   scale_x_continuous(limits = c(0.4, 4), expand = c(0, 0)) +
   theme_void() +
   theme(plot.margin = margin(10, 10, 10, 10)) +
   labs(title = "assign_lineage_colors(wnv_mut_orf)")
 
-ggsave("sandbox/lineage_colors_preview.png", swatch_plot, width = 6, height = 8, dpi = 150)
+write.csv(palette, "sandbox/lineage_colors.csv", row.names = FALSE)
+ggsave(
+  "sandbox/lineage_colors_preview.png",
+  swatch_plot,
+  width = 6,
+  height = 8,
+  dpi = 150
+)

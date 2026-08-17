@@ -33,8 +33,10 @@ lineages <- define_lineage(
 
 lineages <- define_lineage(trimmed, ref, muts, mut_type = "aa")
 
-lineages %>%
+lin_sum <- lineages %>%
   dplyr::count(lineage)
+
+write.csv(lin_sum, "sandbox/define_lineage_ds_1_output.csv", row.names = FALSE)
 
 unknown <- c(
   "VCTR0010000464|2021-08-25|West|AZ/Maricopa|Unknown|mosquito-culex",
@@ -47,4 +49,3 @@ unknown <- purrr::keep(trimmed, names(trimmed) %in% unknown)
 unknown <- Biostrings::translate(unknown, if.fuzzy.codon = "X")
 as.character(subseq(unknown, start = 449, end = 449))
 as.character(subseq(unknown, start = 2513, end = 2513))
-

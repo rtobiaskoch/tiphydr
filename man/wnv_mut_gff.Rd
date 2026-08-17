@@ -5,9 +5,13 @@
 \alias{wnv_mut_gff}
 \title{WNV lineage-defining mutations (gene-relative coordinates)}
 \format{
-A tibble with 49 rows and 4 columns:
+A tibble with 49 rows and 5 columns:
 \describe{
 \item{lineage}{Lineage name (chr).}
+\item{major_lineage}{Lineage collapsed to one of \code{NY99}, \code{WN02}, \code{SW03},
+\code{NY10} — whichever family has more markers present. Cross-family
+lineages with a tied marker count keep their own \code{lineage} name here
+instead of being forced to a side (chr).}
 \item{gene}{Gene the mutation falls in, matching GFF product names (chr).}
 \item{pos}{Amino acid position from the gene's own start (int).}
 \item{residue}{Required amino acid residue at \code{pos} (chr).}
