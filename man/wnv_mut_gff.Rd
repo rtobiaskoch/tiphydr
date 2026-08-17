@@ -5,7 +5,7 @@
 \alias{wnv_mut_gff}
 \title{WNV lineage-defining mutations (gene-relative coordinates)}
 \format{
-A tibble with 16 rows and 4 columns:
+A tibble with 49 rows and 4 columns:
 \describe{
 \item{lineage}{Lineage name (chr).}
 \item{gene}{Gene the mutation falls in, matching GFF product names (chr).}

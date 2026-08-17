@@ -36,13 +36,6 @@ lineages <- define_lineage(trimmed, ref, muts, mut_type = "aa")
 lineages %>%
   dplyr::count(lineage)
 
-
-old <- muts[-4, ]
-old_lineages <- define_lineage(trimmed, ref, old, mut_type = "aa")
-
-old_lineages %>%
-  dplyr::count(lineage)
-
 unknown <- c(
   "VCTR0010000464|2021-08-25|West|AZ/Maricopa|Unknown|mosquito-culex",
   "PQ005956|2022-06-01|West|CA/LosAngeles|Unknown|mosquito-culex",
@@ -55,13 +48,3 @@ unknown <- Biostrings::translate(unknown, if.fuzzy.codon = "X")
 as.character(subseq(unknown, start = 449, end = 449))
 as.character(subseq(unknown, start = 2513, end = 2513))
 
-
-# Extract position 85 for every sequence in the AAStringSet
-
-t <- subseq(trimmed, start = 4087 + 1, end = 4089 + 1)
-#t = translate(t, if.fuzzy.codon = "X")
-
-Biostrings::consensusMatrix(t)
-Biostrings::codons(t)
-
-# This returns a character vector like: c("A", "A", "T", "A"...)

@@ -2,3 +2,4 @@
 ^renv\.lock$
 ^tiphydr\.Rproj$
 ^\.Rproj\.user$
+^data-raw$

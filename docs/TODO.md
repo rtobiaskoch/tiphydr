@@ -36,6 +36,6 @@ add color of inferred_intro_date point to be the source inferred_intro_source
 ## DEFINE_LINEAGES.R
 - [x] create a simpler function just with the input being the absolute amino acid position and residue as required input. User can use the resolve positions function
 - [x] save existing function as define_lineages_dev.R in sandbox
-
+- [ ] dynamic define_lineage. allow output to create more dynamic hybrid lineages. plan is staged-wondering-meerkat.md.
 
 

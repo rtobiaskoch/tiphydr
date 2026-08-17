@@ -9,7 +9,8 @@ plot_tree_trait(
   trait,
   confidence = "confidence_state",
   palette = "Dark2",
-  branch_state = c("parent", "node")
+  branch_state = c("parent", "node"),
+  named_palette = NULL
 )
 }
 \arguments{
@@ -22,7 +23,8 @@ plot_tree_trait(
 column (default \code{"confidence_state"}). Silently ignored if absent.}
 
 \item{palette}{RColorBrewer palette name for discrete traits. Default
-\code{"Dark2"}. Ignored for continuous traits.}
+\code{"Dark2"}. Ignored for continuous traits, and ignored when
+\code{named_palette} is supplied.}
 
 \item{branch_state}{Which node's trait paints each branch. \code{"parent"}
 (default) is the nextstrain convention — colour flows down from the
@@ -37,6 +39,16 @@ state it ended in and hides where it came from. \code{"node"} is the more
 defensible choice for terminal branches specifically, since a tip's state
 is observed data rather than a reconstruction — painting it with an
 inferred ancestral state puts inference on top of an observation.}
+
+\item{named_palette}{Optional named character vector (trait level -> hex
+colour) for discrete traits, e.g. a project-stable palette instead of the
+auto-generated Dark2-by-appearance-order one. Ignored for continuous
+traits. Passing your own palette here -- rather than appending
+\code{+ scale_color_manual(values = ...)} after the call -- matters
+because branches AND point fills need to agree: fills are LITERAL
+per-row colours baked in during this call (see the point styling
+paragraph above), so a scale added afterward only repaints the branches,
+leaving points on the old palette.}
 }
 \value{
 A \code{ggplot} object. Additional \pkg{ggplot2} layers can be added
@@ -54,10 +66,16 @@ RColorBrewer palette. Returns a \pkg{ggplot2} object that can be extended
 with additional layers.
 }
 \details{
-If a per-node confidence column is present it is double-encoded as point size
-and alpha (larger, more opaque = higher confidence). When absent, plain
-points are drawn — so the function works on any \code{tbl_tree}, not just the
-output of \code{\link{build_tree_df}}.
+Points are drawn Nextstrain-style: shape 21 with an independent border and
+fill. The border is a flat, fully-opaque light grey so points read as
+distinct circles against the (alpha-dimmed) branches behind them; fill
+carries the trait colour. If a per-node confidence column is present it is
+double-encoded as point size and fill alpha (larger, more opaque = higher
+confidence) — the alpha is baked directly into the fill colour rather than
+mapped as its own aesthetic, so it dims the fill only, not the border. When
+confidence is absent, fill is a flat alpha of 0.6 and only size is plain —
+so the function works on any \code{tbl_tree}, not just the output of
+\code{\link{build_tree_df}}.
 
 Integer-coded categories (e.g. demes stored as 1/2/3) will render as a
 gradient; pass them as a factor to get discrete colours.
