@@ -33,7 +33,9 @@
 #'   there is no default, so the caller must always state mutation type.
 #' @param verbose logical; if TRUE prints lineage count table (default TRUE)
 #'
-#' @return dataframe with columns strain (chr) and lineage (chr)
+#' @return dataframe with columns strain (chr) and lineage (chr), followed by one
+#'   0/1 integer column per unique tested mutation (named `mut_<pos><residue>`,
+#'   e.g. `mut_4G`); 1 = the sequence carries that residue at that position.
 #' @export
 define_lineage <- function(
   alignment,
@@ -210,9 +212,25 @@ define_lineage <- function(
   result_lineages <- purrr::map_chr(seq_along(alignment), assign_one)
 
   # ── Assemble output dataframe ────────────────────────────────────────────────
+  # One 0/1 column per unique tested mutation (pos + residue), so shared
+  # mutations across lineages appear once. Column name: "mut_<pos><residue>".
+  unique_muts <- dplyr::distinct(muts, pos, residue)
+  mut_flags <- purrr::map2(
+    unique_muts$pos,
+    unique_muts$residue,
+    function(p, r) {
+      purrr::map_int(seq_along(alignment), function(seq_idx) {
+        as.integer(isTRUE(get_residue(seq_idx, p) == toupper(r)))
+      })
+    }
+  )
+  names(mut_flags) <- paste0("mut_", unique_muts$pos, toupper(unique_muts$residue))
+
   result <- data.frame(
     strain = seq_names,
     lineage = result_lineages,
+    mut_flags,
+    check.names = FALSE,
     stringsAsFactors = FALSE
   )
 

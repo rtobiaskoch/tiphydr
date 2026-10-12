@@ -8,8 +8,28 @@ test_that("returns dataframe with strain and lineage columns", {
     )
   )
   expect_s3_class(result, "data.frame")
-  expect_named(result, c("strain", "lineage"))
+  expect_equal(names(result)[1:2], c("strain", "lineage"))
   expect_equal(nrow(result), length(make_test_biostring()))
+})
+
+test_that("appends 0/1 match column per unique mutation", {
+  muts <- make_test_muts()
+  result <- suppressMessages(
+    define_lineage(make_test_biostring(), make_test_ref(), muts, mut_type = "nuc")
+  )
+  flag_cols <- setdiff(names(result), c("strain", "lineage"))
+  expect_equal(
+    flag_cols,
+    paste0("mut_", unique(paste0(muts$pos, muts$residue)))
+  )
+  expect_true(all(unlist(result[flag_cols]) %in% c(0L, 1L)))
+  # NY10_001 carries pos4=G and pos10=C
+  ny10 <- result[result$strain == "WNV|2021|CO|NY10_001", ]
+  expect_equal(ny10$mut_4G, 1L)
+  expect_equal(ny10$mut_10C, 1L)
+  # wildtype carries neither
+  wt <- result[result$strain == "WNV|2019|CO|OTHER_004", ]
+  expect_equal(c(wt$mut_4G, wt$mut_10C), c(0L, 0L))
 })
 
 test_that("strict match: NY10 requires both mutations", {
