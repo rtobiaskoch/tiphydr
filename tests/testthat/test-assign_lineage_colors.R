@@ -9,6 +9,10 @@ synthetic_muts <- function() {
     "FOO",         3,      "A",
     "FOO_X",       1,      "A",
     "FOO_X",       2,      "A",
+    # FOO_Y: same mutation COUNT as FOO_X (2 of FOO's 3) but a different
+    # suffix name -- an equal-fraction sibling for testing hue distinctness.
+    "FOO_Y",       2,      "A",
+    "FOO_Y",       3,      "A",
     "BAR",         4,      "A",
     "BAR",         5,      "A",
     "FOO-BAR",     1,      "A",
@@ -89,12 +93,44 @@ test_that("real wnv_mut_orf data: base families get their default colors", {
   expect_equal(result$color[result$lineage == "NY99"], "#E7298A")
 })
 
-test_that("real wnv_mut_orf data: equal-fraction partials get identical colors", {
-  # SW03_NS4A and SW03_NS5 both carry 2 of SW03's 3 mutations.
+test_that("real wnv_mut_orf data: equal-fraction partials get DISTINCT colors", {
+  # SW03_NS4A/SW03_NS5 and NY10_NS2A/NY10_NS4B are each 2 of their family's 3
+  # mutations -- equal fraction must no longer collapse them to one color.
+  # This replaces a prior test asserting the opposite, which was the exact
+  # collision reported as "too similar to tell apart" in a real figure.
   result <- assign_lineage_colors(wnv_mut_orf)
+  expect_false(
+    result$color[result$lineage == "SW03_NS4A"] ==
+      result$color[result$lineage == "SW03_NS5"]
+  )
+  expect_false(
+    result$color[result$lineage == "NY10_NS2A"] ==
+      result$color[result$lineage == "NY10_NS4B"]
+  )
+})
+
+test_that("equal-fraction synthetic partials get distinct colors", {
+  result <- assign_lineage_colors(synthetic_muts(), synthetic_base_colors())
+  foo_x <- result$color[result$lineage == "FOO_X"]
+  foo_y <- result$color[result$lineage == "FOO_Y"]
+  expect_false(foo_x == foo_y)
+  # Both still lighter tints of the family base, not arbitrary hues.
+  base_rgb <- as.vector(grDevices::col2rgb("#FF0000"))
+  expect_true(mean(as.vector(grDevices::col2rgb(foo_x))) > mean(base_rgb))
+  expect_true(mean(as.vector(grDevices::col2rgb(foo_y))) > mean(base_rgb))
+})
+
+test_that("a partial's color depends only on its own suffix, not sibling partials", {
+  # Colors are a project-stable reference (lineage_colors.csv), regenerated
+  # only occasionally, so a new sibling label appearing must not silently
+  # recolor an existing one.
+  muts_with_sibling <- synthetic_muts()
+  muts_without_sibling <- dplyr::filter(muts_with_sibling, lineage != "FOO_Y")
+  with_sibling <- assign_lineage_colors(muts_with_sibling, synthetic_base_colors())
+  without_sibling <- assign_lineage_colors(muts_without_sibling, synthetic_base_colors())
   expect_equal(
-    result$color[result$lineage == "SW03_NS4A"],
-    result$color[result$lineage == "SW03_NS5"]
+    with_sibling$color[with_sibling$lineage == "FOO_X"],
+    without_sibling$color[without_sibling$lineage == "FOO_X"]
   )
 })
 

@@ -116,7 +116,17 @@ assign_lineage_colors <- function(
     own_n        <- muts_counts$n[muts_counts$lineage == lineage_name]
     fraction     <- own_n / family_n
 
-    colorspace::lighten(family_color, amount = 1 - fraction)
+    # Fraction alone collapses same-fraction siblings (e.g. NY10_NS2A and
+    # NY10_NS4B each carry 2 of NY10's 3 mutations) onto the identical tint --
+    # confirmed too similar to distinguish in a real figure. A hue offset,
+    # derived from the partial's own suffix (not its position among
+    # siblings, so adding/removing a sibling never recolors an existing
+    # partial), gives same-fraction siblings distinct colors while fraction
+    # still drives lightness.
+    suffix <- sub(paste0("^", family, "_"), "", lineage_name)
+    family_hue_shifted <- .hue_shift(family_color, .suffix_hue_offset(suffix))
+
+    colorspace::lighten(family_hue_shifted, amount = 1 - fraction)
   }
 
   # ── Assemble output ──────────────────────────────────────────────────────────
@@ -140,3 +150,28 @@ assign_lineage_colors <- function(
 # at runtime but invisible to R CMD check's static analysis of the function
 # body above; this silences the resulting "no visible binding" NOTE.
 utils::globalVariables("wnv_lineage_colors")
+
+#' Deterministic hue offset (degrees) for a partial lineage's suffix
+#'
+#' Depends only on the suffix string itself, never on how many other
+#' partials share its family or what order they appear in -- so adding a
+#' new sibling partial (e.g. a future "NY10_NS3") never shifts the color
+#' already assigned to an existing one ("NY10_NS2A"). Range is +/-20
+#' degrees: enough to visually separate same-fraction siblings without
+#' drifting into a different family's hue.
+#' @noRd
+.suffix_hue_offset <- function(suffix) {
+  (sum(utf8ToInt(suffix)) * 37L) %% 41L - 20L
+}
+
+#' Rotate a hex color's hue by `degrees` in HCL space, keeping chroma/lightness
+#' @noRd
+.hue_shift <- function(hex_color, degrees) {
+  polar <- methods::as(colorspace::hex2RGB(hex_color), "polarLUV")
+  co <- colorspace::coords(polar)
+  co[, "H"] <- (co[, "H"] + degrees) %% 360
+  # fixup = TRUE: a hue rotation at high chroma (e.g. off a saturated base
+  # like "#FF0000") can land outside the sRGB gamut; colorspace::hex()
+  # returns NA for that rather than clipping unless told to.
+  colorspace::hex(colorspace::polarLUV(co[, "L"], co[, "C"], co[, "H"]), fixup = TRUE)
+}
