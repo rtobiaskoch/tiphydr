@@ -168,7 +168,12 @@ plot_tree_trait <- function(tree_df, trait,
 
   # Branch alpha 0.6 matches the point fill's flat-case alpha, dimming
   # branches so the (fully-opaque-bordered) points stand out against them.
-  p <- ggtree::ggtree(phylo, alpha = 0.6)
+  # key_glyph = "rect": the branch colour legend defaults to a line sample
+  # (GeomSegment's draw_key_path), which reads poorly at a glance. Passed as a
+  # per-layer argument so ggplot2 builds a layer-local geom; mutating the
+  # shared GeomSegment's draw_key instead would leak into every later
+  # geom_segment() plot in the session.
+  p <- ggtree::ggtree(phylo, alpha = 0.6, key_glyph = "rect")
   p <- ggtree::`%<+%`(p, node_data) +
     ggplot2::aes(color = .data[[branch_col]]) +
     ggtree::geom_tippoint(point_aes, shape = 21, colour = "grey90", stroke = 0.3) +

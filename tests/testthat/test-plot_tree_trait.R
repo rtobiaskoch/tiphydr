@@ -5,6 +5,42 @@ test_that("plot_tree_trait returns a ggplot object for a discrete trait", {
   expect_s3_class(result, "ggplot")
 })
 
+test_that("branch legend key glyph is a box, not ggtree's default line sample", {
+  # A colored line sample in the legend is hard to distinguish at a glance;
+  # every layer carrying the branch colour aes (ggtree draws rectangular
+  # layout branches as two GeomSegment layers -- horizontal + vertical elbow
+  # connectors) should draw its legend key as a filled rect instead.
+  tree    <- make_intro_tree()
+  tree_df <- build_tree_df(tree, make_intro_node_probs(tree), make_intro_annotated_tree_path(tree))
+  p <- plot_tree_trait(tree_df, "inferred_state")
+
+  # ggproto wraps any assigned function in a dispatch wrapper (visible via
+  # print(), showing an inner "Wrapper function" around the real one), so
+  # comparing draw_key by identity() against ggplot2::draw_key_rect directly
+  # would always report FALSE even when it IS draw_key_rect underneath.
+  # Call it and check what it actually draws instead: draw_key_rect()
+  # returns a "rect" grob, draw_key_path() (GeomSegment's default) a
+  # "segments" grob.
+  segment_layers <- purrr::keep(p$layers, ~ inherits(.x$geom, "GeomSegment"))
+  expect_gt(length(segment_layers), 0)
+  key_data <- data.frame(colour = "red", fill = NA, alpha = 1, linetype = 1)
+  for (l in segment_layers) {
+    key_grob <- l$geom$draw_key(key_data, list(), 1)
+    expect_true(inherits(key_grob, "rect"))
+  }
+})
+
+test_that("plot_tree_trait does not leak its legend glyph into global GeomSegment", {
+  # Regression: mutating the shared GeomSegment's draw_key changed every later
+  # geom_segment() legend in the session.
+  tree    <- make_intro_tree()
+  tree_df <- build_tree_df(tree, make_intro_node_probs(tree), make_intro_annotated_tree_path(tree))
+  plot_tree_trait(tree_df, "inferred_state")
+  key_data <- data.frame(colour = "red", fill = NA, alpha = 1, linetype = 1, linewidth = 1)
+  key_grob <- ggplot2::GeomSegment$draw_key(key_data, list(), 1)
+  expect_false(inherits(key_grob, "rect"))
+})
+
 test_that("plot_tree_trait handles a continuous (numeric) trait", {
   tree    <- make_intro_tree()
   tree_df <- build_tree_df(tree, make_intro_node_probs(tree), make_intro_annotated_tree_path(tree))
